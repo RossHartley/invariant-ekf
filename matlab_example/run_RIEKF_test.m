@@ -4,7 +4,7 @@
 clear; restoredefaultpath; clc;
 
 % Add paths
-addpath('forward_kinematics')
+addpath(genpath('forward_kinematics'))
 addpath('example_code')
 
 %% Open Model  

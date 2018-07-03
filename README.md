@@ -59,12 +59,15 @@ The following parameters set the initial covariance for the state estimate:
 The contact-aided invariant extended Kalman filter is described in: 
 * Hartley, Ross, Maani Ghaffari Jadidi, Jessy W. Grizzle, and Ryan M. Eustice. "Contact-Aided Invariant Extended Kalman Filtering for Legged Robot State Estimation." arXiv preprint arXiv:1805.10410 (2018).
 ```
-@article{hartley2018contact,
-  title={Contact-Aided Invariant Extended Kalman Filtering for Legged Robot State Estimation},
-  author={Hartley, Ross and Jadidi, Maani Ghaffari and Grizzle, Jessy W and Eustice, Ryan M},
-  journal={arXiv preprint arXiv:1805.10410},
-  year={2018}
-}
+@INPROCEEDINGS{Hartley-RSS-18, 
+    AUTHOR    = {Ross Hartley AND Maani Ghaffari Jadidi AND Jessy Grizzle AND Ryan M Eustice}, 
+    TITLE     = {Contact-Aided Invariant Extended Kalman Filtering for Legged Robot State Estimation}, 
+    BOOKTITLE = {Proceedings of Robotics: Science and Systems}, 
+    YEAR      = {2018}, 
+    ADDRESS   = {Pittsburgh, Pennsylvania}, 
+    MONTH     = {June}, 
+    DOI       = {10.15607/RSS.2018.XIV.050} 
+} 
 ```
 The core theory of invariant extended Kalman filtering is presented in:
 * Barrau, Axel, and Silvère Bonnabel. "The invariant extended Kalman filter as a stable observer." IEEE Transactions on Automatic Control 62.4 (2017): 1797-1812.

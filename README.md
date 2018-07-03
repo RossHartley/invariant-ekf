@@ -57,7 +57,7 @@ The following parameters set the initial covariance for the state estimate:
 
 ## Citations
 The contact-aided invariant extended Kalman filter is described in: 
-* Hartley, Ross, Maani Ghaffari Jadidi, Jessy W. Grizzle, and Ryan M. Eustice. "Contact-Aided Invariant Extended Kalman Filtering for Legged Robot State Estimation." arXiv preprint arXiv:1805.10410 (2018).
+* R. Hartley, M. G. Jadidi, J. Grizzle, and R. M. Eustice, “Contact-aided invariant extended kalman filtering for legged robot state estimation,” in Proceedings of Robotics: Science and Systems, Pittsburgh, Pennsylvania, June 2018.
 ```
 @INPROCEEDINGS{Hartley-RSS-18, 
     AUTHOR    = {Ross Hartley AND Maani Ghaffari Jadidi AND Jessy Grizzle AND Ryan M Eustice}, 

@@ -9,6 +9,8 @@ classdef RIEKF < matlab.System & matlab.system.mixin.Propagates %#codegen
         static_bias_initialization = true;
         % Enable Measurement Updates
         ekf_update_enabled = true;
+        % Enable Kinematic measurements
+        enable_kinematic_measurements = false;
         % Enable Landmark measurements
         enable_landmark_measurements = false;
         % Enable Static Landmarks
@@ -179,8 +181,12 @@ classdef RIEKF < matlab.System & matlab.system.mixin.Propagates %#codegen
 
                 % Update using other measurements
                 if obj.ekf_update_enabled
+
                     % Update state using forward kinematic measurements
-                    obj.Update_ForwardKinematics(encoders, contact);
+                    if obj.enable_kinematic_measurements
+                        obj.Update_ForwardKinematics(encoders, contact);
+                    end
+                    
                     % Update state using landmark position measurements
                     if obj.enable_landmark_measurements && ~isempty(landmarks)
                         if obj.enable_static_landmarks
@@ -189,6 +195,7 @@ classdef RIEKF < matlab.System & matlab.system.mixin.Propagates %#codegen
                             obj.Update_Landmarks(landmarks);
                         end
                     end
+                    
                 end
             
             end
@@ -401,6 +408,10 @@ classdef RIEKF < matlab.System & matlab.system.mixin.Propagates %#codegen
                                   -obj.skew(p)*R, zeros(3);
                                  -obj.skew(dR)*R, zeros(3);
                                  -obj.skew(dL)*R, zeros(3)];
+           for i=1:length(obj.landmark_ids)   
+               Fc(15+3*(i-1)+1:15+3*i,end-5:end) = [-obj.skew(lm(:,i))*R, zeros(3)];
+           end
+            
            
             % Discretize
             Fk = eye(size(Fc)) + Fc*dt; 
@@ -500,9 +511,9 @@ classdef RIEKF < matlab.System & matlab.system.mixin.Propagates %#codegen
                 obj.Update_State(Y, b, H, N, PI);
                 
             end
-            
         end
-       
+        
+
         function [] = Update_StaticLandmarks(obj, landmarks)
             % Function to perform Right-Invariant EKF update from static
             % landmark distance measurements
@@ -590,6 +601,7 @@ classdef RIEKF < matlab.System & matlab.system.mixin.Propagates %#codegen
             end
             
         end
+                  
         
     end % methods
 end % classdef

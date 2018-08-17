@@ -31,6 +31,7 @@ The following parameters will affect the actual noisy measurements coming into t
 The following parameters will affect how the filter is run:
 * `static_bias_initialization` - Flag that enables static bias initialization, where the initial bias estimate is obtained from the first few seconds of data assuming the base pose remains fixed. Keep this flag to false for the included dataset.
 * `ekf_update_enabled` - Flag that enables the update phase of the Kalman filter.
+* `enable_kinematic_measurements` - Flag that enables kinematic measurements.
 * `enable_landmark_measurements` - Flag that enables landmark measurements.
 * `enable_static_landmarks` - Flag that enables static landmarks. If false, the landmark positions will be estimated along with the rest of the state variables.
 

@@ -549,7 +549,7 @@ classdef RIEKF < matlab.System & matlab.system.mixin.Propagates %#codegen
             R_pred = obj.X(1:3,1:3);
                         
             % Stack landmark measurements
-            Y = []; H = []; N = []; PI = []; new_landmarks = [];
+            Y = []; H = []; N = []; PI = []; new_landmarks = [];  
             for i = 1:size(landmarks,2)
                 % Search to see if measured landmark id is in the list of
                 % static landmarks
@@ -595,7 +595,7 @@ classdef RIEKF < matlab.System & matlab.system.mixin.Propagates %#codegen
                     F = vertcat(F, [zeros(3,6), eye(3), zeros(3,3*(size(obj.X,2)-6))]); % Add row to increase dimension
                     F = blkdiag(F, eye(6)); % Add block I for parameters
                     G = zeros(size(F,1),3);
-                    G(end-8:end-6,:) = R_pred * obj.Ql;
+                    G(end-8:end-6,:) = R_pred;
                     obj.P = F*obj.P*F' + G*obj.Ql*G';
                 end
             end

@@ -82,7 +82,8 @@ for j = 1:length(lm_true)
 end
 
 %% Start and end indices
-[~, startIndex] = max( diff(p(3,:)) ); 
+% [~, startIndex] = max( diff(p(3,:)) ); 
+startIndex = find(enabled.signals.values == 1, 1, 'first');
 startIndex = startIndex + 1;
 endIndex = length(p);
 
@@ -122,24 +123,25 @@ bg_true = bg_true(:,startIndexTrue:endIndexTrue);
 ba_true = ba_true(:,startIndexTrue:endIndexTrue);
 
 %% Align starting absolute position and yaw
-if ~enable_static_landmarks
-    HW1B = [R(:,:,1), p(:,1); zeros(1,3), 1];
-    HW2B = [R_true(:,:,1), p_true(:,1); zeros(1,3), 1];
-    HW2W1 = HW2B/HW1B;
-    for i = 1:length(t)
-        % World Frame
-        R(:,:,i) = HW2W1(1:3,1:3) * R(:,:,i);
-        q(:,i) = Rotation_to_Euler(R(:,:,i));
-        v(:,i) = HW2W1(1:3,1:3) * v(:,i);
-        p(:,i) = HW2W1(1:3,end) + HW2W1(1:3,1:3) * p(:,i);
-        
-        % Landmarks
-        for j = 1:length(lm)
-            lm{j}(2:4,i) = HW2W1(1:3,end) + HW2W1(1:3,1:3) * lm{j}(2:4,i);
-        end
-        
-    end
-end
+% if ~enable_static_landmarks
+%     HW1B = [R(:,:,1), p(:,1); zeros(1,3), 1];
+%     HW2B = [R_true(:,:,1), p_true(:,1); zeros(1,3), 1];
+%     HW2W1 = HW2B/HW1B;
+%     for i = 1:length(t)
+%         % World Frame
+%         R(:,:,i) = HW2W1(1:3,1:3) * R(:,:,i);
+%         q(:,i) = Rotation_to_Euler(R(:,:,i));
+%         v(:,i) = HW2W1(1:3,1:3) * v(:,i);
+%         p(:,i) = HW2W1(1:3,end) + HW2W1(1:3,1:3) * p(:,i);
+%         
+%         % Landmarks
+%         for j = 1:length(lm)
+%             lm{j}(2:4,i) = HW2W1(1:3,end) + HW2W1(1:3,1:3) * lm{j}(2:4,i);
+%         end
+%         
+%     end
+% end
+
 %% Initialize Plots
 fignum = 1;
 EstimateLine = 'r-';
@@ -234,38 +236,38 @@ ylabel('m')
 xlabel('time (sec)')
 
 %% Landmark Plot
-for i = 1:length(lm)
-    if all(all(isnan(lm{i})))
-        continue;
-    end
-    figure(fignum)
-    fignum = fignum + 1;
-    
-    subplot(3,1,1)
-    grid on; hold on;
-    plot(t, lm{i}(2,:), EstimateLine, 'LineWidth', LineWidth)
-    plot(t, lm_true{i}(2,:), TrueLine, 'LineWidth', LineWidth)
-    legend('Estimate', 'True')
-    title(['Landmark ', num2str(lm_true{i}(1)),' (World) - x'])
-    ylabel('m')
-    
-    subplot(3,1,2)
-    grid on; hold on;
-    plot(t, lm{i}(3,:), EstimateLine, 'LineWidth', LineWidth)
-    plot(t, lm_true{i}(3,:), TrueLine, 'LineWidth', LineWidth)
-    legend('Estimate', 'True')
-    title(['Landmark ', num2str(lm_true{i}(1)),' (World) - y'])
-    ylabel('m')
-    
-    subplot(3,1,3)
-    grid on; hold on;
-    plot(t, lm{i}(4,:), EstimateLine, 'LineWidth', LineWidth)
-    plot(t, lm_true{i}(4,:), TrueLine, 'LineWidth', LineWidth)
-    legend('Estimate', 'True')
-    title(['Landmark ', num2str(lm_true{i}(1)),' (World) - z'])
-    ylabel('m')
-    xlabel('time (sec)')
-end
+% for i = 1:length(lm)
+%     if all(all(isnan(lm{i})))
+%         continue;
+%     end
+%     figure(fignum)
+%     fignum = fignum + 1;
+%     
+%     subplot(3,1,1)
+%     grid on; hold on;
+%     plot(t, lm{i}(2,:), EstimateLine, 'LineWidth', LineWidth)
+%     plot(t, lm_true{i}(2,:), TrueLine, 'LineWidth', LineWidth)
+%     legend('Estimate', 'True')
+%     title(['Landmark ', num2str(lm_true{i}(1)),' (World) - x'])
+%     ylabel('m')
+%     
+%     subplot(3,1,2)
+%     grid on; hold on;
+%     plot(t, lm{i}(3,:), EstimateLine, 'LineWidth', LineWidth)
+%     plot(t, lm_true{i}(3,:), TrueLine, 'LineWidth', LineWidth)
+%     legend('Estimate', 'True')
+%     title(['Landmark ', num2str(lm_true{i}(1)),' (World) - y'])
+%     ylabel('m')
+%     
+%     subplot(3,1,3)
+%     grid on; hold on;
+%     plot(t, lm{i}(4,:), EstimateLine, 'LineWidth', LineWidth)
+%     plot(t, lm_true{i}(4,:), TrueLine, 'LineWidth', LineWidth)
+%     legend('Estimate', 'True')
+%     title(['Landmark ', num2str(lm_true{i}(1)),' (World) - z'])
+%     ylabel('m')
+%     xlabel('time (sec)')
+% end
 
 
 

@@ -1,2 +1,4 @@
 slprj/
 *.asv
+bin/
+build/

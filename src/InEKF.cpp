@@ -125,9 +125,9 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& m, double dt) {
     Eigen::MatrixXd Phi = I + A*dt; // Fast approximation of exp(A*dt). TODO: explore using the full exp() instead
     Eigen::MatrixXd Adj = I;
     Adj.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(X); // Approx 200 microseconds
-    //Eigen::MatrixXd PhiAdj = Phi * Adj;
-    //Eigen::MatrixXd Qk_hat = PhiAdj * Qk * PhiAdj.transpose() * dt; // Approximated discretized noise matrix (faster by 400 microseconds)
-    Eigen::MatrixXd Qk_hat = Phi * Adj * Qk * Adj.transpose() * Phi.transpose() * dt; // Approximated discretized noise matrix 
+    Eigen::MatrixXd PhiAdj = Phi * Adj;
+    Eigen::MatrixXd Qk_hat = PhiAdj * Qk * PhiAdj.transpose() * dt; // Approximated discretized noise matrix (faster by 400 microseconds)
+    //Eigen::MatrixXd Qk_hat = Phi * Adj * Qk * Adj.transpose() * Phi.transpose() * dt; // Approximated discretized noise matrix 
 
     // Propagate Covariance
     Eigen::MatrixXd P_pred = Phi * P * Phi.transpose() + Qk_hat;

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Prerequisites
 *.d
 
@@ -30,3 +31,12 @@
 *.exe
 *.out
 *.app
+
+# MATLAB
+slprj/
+*.asv
+
+# Build folders
+bin/
+build/
+

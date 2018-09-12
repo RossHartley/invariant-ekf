@@ -2,7 +2,10 @@
 cmake_minimum_required(VERSION 2.8)
 set(CMAKE_CXX_STANDARD 11)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g") # Debugging
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Wl,--no-as-needed") 
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}") 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -DEIGEN_NO_DEBUG -march=native -Wl,--no-as-needed") 
+# -O3 -DEIGEN_NO_DEBUG sped up large matrix multiplication by a factor of 10
+# -march=native further sped up large matrix multiplication by a factor of 2
 
 # Project's name
 project(inekf)
@@ -10,7 +13,7 @@ project(inekf)
 # Set the output folder where your program will be created
 set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/bin)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
-set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
+set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)    
 
 ############################################
 #  The following folders will be included  #
@@ -40,9 +43,10 @@ link_directories(${PROJECT_SOURCE_DIR}/${Boost_LIBRARY_DIRS})
 
 add_executable(landmarks ${PROJECT_SOURCE_DIR}/src/examples/landmarks.cpp ${src_files})
 add_executable(propagation_speed ${PROJECT_SOURCE_DIR}/src/tests/propagation_speed.cpp ${src_files})
+add_executable(correction_speed ${PROJECT_SOURCE_DIR}/src/tests/correction_speed.cpp ${src_files})
 
 target_link_libraries(landmarks ${Boost_LIBRARIES})
-target_link_libraries(propagation_speed ${Boost_LIBRARIES})
+target_link_libraries(correction_speed ${Boost_LIBRARIES})
 
 
 

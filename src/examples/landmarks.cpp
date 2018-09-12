@@ -82,7 +82,7 @@ int main()
 
             // Correct state using landmark measurements
             filter.CorrectLandmarks(measured_landmarks);
-            //cout << filter.getState() << endl;
+            cout << filter.getState() << endl;
 
         }
 

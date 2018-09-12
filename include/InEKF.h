@@ -5,6 +5,7 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <algorithm>
 #include "RobotState.h"
 #include "LieGroup.h"
 
@@ -18,24 +19,24 @@ class NoiseParams {
         NoiseParams();
 
         void setGyroscopeNoise(double std);
-        void setGyroscopeNoise(Eigen::Vector3d std);
-        void setGyroscopeNoise(Eigen::Matrix3d cov);
+        void setGyroscopeNoise(const Eigen::Vector3d& std);
+        void setGyroscopeNoise(const Eigen::Matrix3d& cov);
 
         void setAccelerometerNoise(double std);
-        void setAccelerometerNoise(Eigen::Vector3d std);
-        void setAccelerometerNoise(Eigen::Matrix3d cov);  
+        void setAccelerometerNoise(const Eigen::Vector3d& std);
+        void setAccelerometerNoise(const Eigen::Matrix3d& cov);  
 
         void setGyroscopeBiasNoise(double std);
-        void setGyroscopeBiasNoise(Eigen::Vector3d std);
-        void setGyroscopeBiasNoise(Eigen::Matrix3d cov);
+        void setGyroscopeBiasNoise(const Eigen::Vector3d& std);
+        void setGyroscopeBiasNoise(const Eigen::Matrix3d& cov);
 
         void setAccelerometerBiasNoise(double std);
-        void setAccelerometerBiasNoise(Eigen::Vector3d std);
-        void setAccelerometerBiasNoise(Eigen::Matrix3d cov);  
+        void setAccelerometerBiasNoise(const Eigen::Vector3d& std);
+        void setAccelerometerBiasNoise(const Eigen::Matrix3d& cov);  
 
         void setLandmarkNoise(double std);
-        void setLandmarkNoise(Eigen::Vector3d std);
-        void setLandmarkNoise(Eigen::Matrix3d cov);
+        void setLandmarkNoise(const Eigen::Vector3d& std);
+        void setLandmarkNoise(const Eigen::Matrix3d& cov);
 
         Eigen::Matrix3d getGyroscopeCov();
         Eigen::Matrix3d getAccelerometerCov();
@@ -68,8 +69,6 @@ class Observation {
         Eigen::MatrixXd PI;
 
         friend std::ostream& operator<<(std::ostream& os, const Observation& o);  
-
-
 };
 
 
@@ -79,12 +78,12 @@ class InEKF {
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         InEKF();
         InEKF(RobotState state);
-        InEKF(RobotState state, mapIntVector3d prior_landmarks);
+        InEKF(RobotState state, const mapIntVector3d& prior_landmarks);
 
         RobotState getState();
         void Propagate(const Eigen::Matrix<double,6,1>& m, double dt);
         void Correct(const Observation& obs);
-        void CorrectLandmarks(const vectorPairIntVector3d measured_landmarks);
+        void CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks);
 
     private:
         RobotState state_;

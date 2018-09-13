@@ -12,6 +12,7 @@
 #define DT_MAX 1
 
 using namespace std;
+using namespace inekf;
 
 typedef vector<pair<double,Eigen::Matrix<double,6,1>>> vectorPairIntVector6d;
 

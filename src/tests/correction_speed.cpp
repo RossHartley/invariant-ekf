@@ -13,6 +13,7 @@
 #define EIGEN_DISABLE_UNALIGNED_ARRAY_ASSERT
 
 using namespace std;
+using namespace inekf;
 
 typedef vector<pair<double,Eigen::Matrix<double,6,1>>> vectorPairIntVector6d;
 

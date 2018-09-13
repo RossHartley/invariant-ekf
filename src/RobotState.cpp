@@ -1,5 +1,8 @@
 #include "RobotState.h"
 #include "LieGroup.h"
+
+namespace inekf {
+
 using namespace std;
 
 // Default constructor
@@ -63,3 +66,5 @@ ostream& operator<<(ostream& os, const RobotState& s) {
     os << "-----------------------------------";
     return os;  
 } 
+
+} // end inekf namespace

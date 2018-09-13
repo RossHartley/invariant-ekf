@@ -1,4 +1,7 @@
 #include "LieGroup.h"
+
+namespace inekf {
+
 using namespace std;
 
 Eigen::Matrix3d skew(const Eigen::Vector3d& v) {
@@ -62,3 +65,5 @@ Eigen::MatrixXd Adjoint_SEK3(const Eigen::MatrixXd& X) {
     }
     return Adj;
 }
+
+} // end inekf namespace

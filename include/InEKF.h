@@ -9,6 +9,8 @@
 #include "RobotState.h"
 #include "LieGroup.h"
 
+namespace inekf {
+
 typedef std::map<int,Eigen::Vector3d,std::less<int>,Eigen::aligned_allocator<std::pair<const int,Eigen::Vector3d>>> mapIntVector3d;
 typedef std::vector<std::pair<int,Eigen::Vector3d>> vectorPairIntVector3d;
 
@@ -93,6 +95,5 @@ class InEKF {
         std::map<int,int> estimated_landmarks_;
 };
 
-
-
+} // end inekf namespace
 #endif 

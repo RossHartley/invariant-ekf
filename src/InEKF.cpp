@@ -1,6 +1,8 @@
 #include "InEKF.h"
-using namespace std;
 
+namespace inekf {
+
+using namespace std;
 
 // ------------ NoiseParams -------------
 // Default Constructor
@@ -334,3 +336,5 @@ void InEKF::CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks) {
 
     return;    
 }
+
+} // end inekf namespace

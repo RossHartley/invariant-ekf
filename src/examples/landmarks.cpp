@@ -9,6 +9,7 @@
 #define DT_MAX 1
 
 using namespace std;
+using namespace inekf;
 
 int main() 
 {

@@ -3,6 +3,8 @@
 #include <Eigen/Dense>
 #include <iostream>
 
+namespace inekf {
+
 class RobotState {
 
     public:
@@ -44,4 +46,5 @@ class RobotState {
 
 };
 
+} // end inekf namespace
 #endif 

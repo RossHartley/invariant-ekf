@@ -1,9 +1,10 @@
 # Specify the minimum version for CMake
-cmake_minimum_required(VERSION 2.8)
-set(CMAKE_CXX_STANDARD 11)
+cmake_minimum_required(VERSION 2.8.3)
+# set(CMAKE_CXX_STANDARD 11)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g") # Debugging
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}") 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -DEIGEN_NO_DEBUG -march=native -Wl,--no-as-needed") 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3 -DEIGEN_NO_DEBUG -march=native -Wl,--no-as-needed") 
+SET(CMAKE_CXX_COMPILER /usr/bin/g++)
 # -O3 -DEIGEN_NO_DEBUG sped up large matrix multiplication by a factor of 10
 # -march=native further sped up large matrix multiplication by a factor of 2
 

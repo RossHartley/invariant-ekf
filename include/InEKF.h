@@ -11,8 +11,9 @@
 
 namespace inekf {
 
-typedef std::map<int,Eigen::Vector3d,std::less<int>,Eigen::aligned_allocator<std::pair<const int,Eigen::Vector3d>>> mapIntVector3d;
-typedef std::vector<std::pair<int,Eigen::Vector3d>> vectorPairIntVector3d;
+typedef std::map<int,Eigen::Vector3d, std::less<int>, Eigen::aligned_allocator<std::pair<const int,Eigen::Vector3d>>> mapIntVector3d;
+//typedef std::map<std::pair<int,Eigen::Vector3d>, Eigen::aligned_allocator<std::pair<int,Eigen::Vector3d>>> mapIntVector3d;
+typedef std::vector<std::pair<int,Eigen::Vector3d>, Eigen::aligned_allocator<std::pair<int,Eigen::Vector3d>>> vectorPairIntVector3d;
 
 class NoiseParams {
 
@@ -45,6 +46,8 @@ class NoiseParams {
         Eigen::Matrix3d getGyroscopeBiasCov();
         Eigen::Matrix3d getAccelerometerBiasCov();
         Eigen::Matrix3d getLandmarkCov();
+
+        friend std::ostream& operator<<(std::ostream& os, const NoiseParams& p);  
 
     private:
         Eigen::Matrix3d Qg_;
@@ -83,6 +86,7 @@ class InEKF {
         InEKF(RobotState state, const mapIntVector3d& prior_landmarks);
 
         RobotState getState();
+        NoiseParams getNoiseParams();
         void Propagate(const Eigen::Matrix<double,6,1>& m, double dt);
         void Correct(const Observation& obs);
         void CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks);

@@ -26,7 +26,7 @@ void NoiseParams::setGyroscopeBiasNoise(double std) { Qbg_ = std*std*Eigen::Matr
 void NoiseParams::setGyroscopeBiasNoise(const Eigen::Vector3d& std) { Qbg_ << std(0)*std(0),0,0, 0,std(1)*std(1),0, 0,0,std(2)*std(2); }
 void NoiseParams::setGyroscopeBiasNoise(const Eigen::Matrix3d& cov) { Qbg_ = cov; }
 
-void NoiseParams::setAccelerometerBiasNoise(double std) { Qbg_ = std*std*Eigen::Matrix3d::Identity(); }
+void NoiseParams::setAccelerometerBiasNoise(double std) { Qba_ = std*std*Eigen::Matrix3d::Identity(); }
 void NoiseParams::setAccelerometerBiasNoise(const Eigen::Vector3d& std) { Qba_ << std(0)*std(0),0,0, 0,std(1)*std(1),0, 0,0,std(2)*std(2); }
 void NoiseParams::setAccelerometerBiasNoise(const Eigen::Matrix3d& cov) { Qba_ = cov; }
 
@@ -40,6 +40,15 @@ Eigen::Matrix3d NoiseParams::getGyroscopeBiasCov() { return Qbg_; }
 Eigen::Matrix3d NoiseParams::getAccelerometerBiasCov() { return Qba_; }
 Eigen::Matrix3d NoiseParams::getLandmarkCov() { return Ql_; }
 
+std::ostream& operator<<(std::ostream& os, const NoiseParams& p) {
+    os << "--------- Noise Params -------------" << endl;
+    os << "Gyroscope Covariance:\n" << p.Qg_ << endl;
+    os << "Accelerometer Covariance:\n" << p.Qa_ << endl;
+    os << "Gyroscope Bias Covariance:\n" << p.Qbg_ << endl;
+    os << "Accelerometer Bias Covariance:\n" << p.Qba_ << endl;
+    os << "Landmark Covariance:\n" << p.Ql_ << endl;
+    os << "-----------------------------------" << endl;
+}
 
 
 // ------------ Observation -------------
@@ -76,8 +85,12 @@ InEKF::InEKF(RobotState state, const mapIntVector3d& prior_landmarks) : state_(s
 // Return robot's current state
 RobotState InEKF::getState() { return state_; }
 
+// Return noise params
+NoiseParams InEKF::getNoiseParams() { return noise_params_; }
+
 // InEKF Propagation - Inertial Data
 void InEKF::Propagate(const Eigen::Matrix<double,6,1>& m, double dt) {
+
     Eigen::Vector3d w = m.head(3) - state_.getAngularVelocityBias();    // Angular Velocity
     Eigen::Vector3d a = m.tail(3) - state_.getLinearAccelerationBias(); // Linear Acceleration
     
@@ -129,13 +142,10 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& m, double dt) {
     Adj.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(X); // Approx 200 microseconds
     Eigen::MatrixXd PhiAdj = Phi * Adj;
     Eigen::MatrixXd Qk_hat = PhiAdj * Qk * PhiAdj.transpose() * dt; // Approximated discretized noise matrix (faster by 400 microseconds)
-    //Eigen::MatrixXd Qk_hat = Phi * Adj * Qk * Adj.transpose() * Phi.transpose() * dt; // Approximated discretized noise matrix 
 
     // Propagate Covariance
     Eigen::MatrixXd P_pred = Phi * P * Phi.transpose() + Qk_hat;
-    //Eigen::MatrixXd P_pred = Phi * (P + Adj*Qk*Adj.transpose()*dt) * Phi.transpose(); // Faster?
 
-    //cout << "diff: \n" << (P_pred-P_pred2).norm() << endl;
     // Set new covariance
     state_.setP(P_pred);
 
@@ -153,6 +163,7 @@ void InEKF::Correct(const Observation& obs) {
     Eigen::MatrixXd S = obs.H * PHT;
     //cout << "S: \n" << S << endl;
     Eigen::MatrixXd K = PHT * S.inverse();
+    //Eigen::MatrixXd K = PHT * S;
     //cout << "K: \n" << K << endl;
 
     // Copy X along the diagonals if more than one measurement

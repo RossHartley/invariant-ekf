@@ -35,6 +35,7 @@ int main()
     
     // Initialize filter
     InEKF filter(initial_state, prior_landmarks);
+    cout << filter.getNoiseParams() << endl;
     cout << "Robot's state is initialized to: \n";
     cout << filter.getState() << endl;
 
@@ -49,7 +50,7 @@ int main()
     while (getline(infile, line)){
         vector<string> measurement;
         boost::split(measurement,line,boost::is_any_of(" "));
-        // Handle measurements
+        // // Handle measurements
         if (measurement[0].compare("IMU")==0){
             cout << "Received IMU Data, propagating state\n";
             t = stod(measurement[1]); 
@@ -61,10 +62,12 @@ int main()
                  stod(measurement[7]);
 
             // Propagate using IMU data
+            cout << "m:\n" << m << endl;
             double dt = t - t_last;
+            cout << "dt: " << dt << endl;
             if (dt > DT_MIN && dt < DT_MAX) {
                 filter.Propagate(m_last, dt);
-                //cout << filter.getState() << endl;
+                cout << filter.getState() << endl;
             }
 
         }

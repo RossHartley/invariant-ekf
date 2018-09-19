@@ -85,8 +85,20 @@ InEKF::InEKF(RobotState state, const mapIntVector3d& prior_landmarks) : state_(s
 // Return robot's current state
 RobotState InEKF::getState() { return state_; }
 
+// Sets the robot's current state
+void InEKF::setState(RobotState state) { state_ = state; }
+
 // Return noise params
 NoiseParams InEKF::getNoiseParams() { return noise_params_; }
+
+// Sets the filter's noise parameters
+void InEKF::setNoiseParams(NoiseParams params) { noise_params_ = params; }
+
+// Return filter's prior (static) landmarks
+mapIntVector3d InEKF::getPriorLandmarks() { return prior_landmarks_; }
+
+// Set the filter's prior (static) landmarks
+void InEKF::setPriorLandmarks(const mapIntVector3d& prior_landmarks) { prior_landmarks_ = prior_landmarks; }
 
 // InEKF Propagation - Inertial Data
 void InEKF::Propagate(const Eigen::Matrix<double,6,1>& m, double dt) {
@@ -156,15 +168,9 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& m, double dt) {
 void InEKF::Correct(const Observation& obs) {
     // Compute Kalman Gain
     Eigen::MatrixXd P = state_.getP();
-    //cout << "P: \n" << P << endl;
-    //cout << "H^T: \n" << obs.H.transpose() << endl;
     Eigen::MatrixXd PHT = P * obs.H.transpose();
-    //cout << "PHT: \n" << PHT << endl;
-    Eigen::MatrixXd S = obs.H * PHT;
-    //cout << "S: \n" << S << endl;
+    Eigen::MatrixXd S = obs.H * PHT + obs.N;
     Eigen::MatrixXd K = PHT * S.inverse();
-    //Eigen::MatrixXd K = PHT * S;
-    //cout << "K: \n" << K << endl;
 
     // Copy X along the diagonals if more than one measurement
     Eigen::MatrixXd BigX;
@@ -175,7 +181,6 @@ void InEKF::Correct(const Observation& obs) {
     Eigen::VectorXd delta = K*obs.PI*Z;
     Eigen::MatrixXd dX = Exp_SEK3(delta.segment(0,delta.rows()-state_.dimTheta()));
     Eigen::VectorXd dTheta = delta.segment(delta.rows()-state_.dimTheta(), state_.dimTheta());
-    //cout << "Z: \n" << Z << endl;
 
     // Update state
     Eigen::MatrixXd X_new = dX*state_.getX(); // Right-Invariant Update
@@ -185,10 +190,8 @@ void InEKF::Correct(const Observation& obs) {
 
     // Update Covariance
     Eigen::MatrixXd IKH = Eigen::MatrixXd::Identity(state_.dimP(),state_.dimP()) - K*obs.H;
-    //cout << "IKH: \n" << IKH << endl;
     Eigen::MatrixXd P_new = IKH * P * IKH.transpose() + K*obs.N*K.transpose(); // Joseph update form
-    //cout << "P_new: \n" << P_new << endl;
-    
+
     state_.setP(P_new); 
 }   
 
@@ -338,11 +341,13 @@ void InEKF::CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks) {
             G.block(G.rows()-state_.dimTheta()-3,0,3,3) = R;
             P_aug = (F*P_aug*F.transpose() + G*noise_params_.getLandmarkCov()*G.transpose()).eval();
 
+            // Update state and covariance
+            state_.setX(X_aug);
+            state_.setP(P_aug);
+
             // Add to list of estimated landmarks
             estimated_landmarks_.insert(pair<int,int> (it->first, startIndex));
         }
-        state_.setX(X_aug);
-        state_.setP(P_aug);
     }
 
     return;    

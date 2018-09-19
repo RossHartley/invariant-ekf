@@ -12,7 +12,6 @@
 namespace inekf {
 
 typedef std::map<int,Eigen::Vector3d, std::less<int>, Eigen::aligned_allocator<std::pair<const int,Eigen::Vector3d>>> mapIntVector3d;
-//typedef std::map<std::pair<int,Eigen::Vector3d>, Eigen::aligned_allocator<std::pair<int,Eigen::Vector3d>>> mapIntVector3d;
 typedef std::vector<std::pair<int,Eigen::Vector3d>, Eigen::aligned_allocator<std::pair<int,Eigen::Vector3d>>> vectorPairIntVector3d;
 
 class NoiseParams {
@@ -87,6 +86,11 @@ class InEKF {
 
         RobotState getState();
         NoiseParams getNoiseParams();
+        mapIntVector3d getPriorLandmarks();
+        void setState(RobotState state);
+        void setNoiseParams(NoiseParams params);
+        void setPriorLandmarks(const mapIntVector3d& prior_landmarks);
+
         void Propagate(const Eigen::Matrix<double,6,1>& m, double dt);
         void Correct(const Observation& obs);
         void CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks);

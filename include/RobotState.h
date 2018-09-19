@@ -34,14 +34,14 @@ class RobotState {
         const int dimTheta();
         const int dimP();
 
-        void setX(Eigen::MatrixXd& X);
-        void setP(Eigen::MatrixXd& P);
-        void setTheta(Eigen::VectorXd& Theta);
-        void setRotation(Eigen::Matrix3d& R);
-        void setVelocity(Eigen::Vector3d& v);
-        void setPosition(Eigen::Vector3d& p);
-        void setAngularVelocityBias(Eigen::Vector3d& bg);
-        void setLinearAccelerationBias(Eigen::Vector3d& ba);
+        void setX(const Eigen::MatrixXd& X);
+        void setP(const Eigen::MatrixXd& P);
+        void setTheta(const Eigen::VectorXd& Theta);
+        void setRotation(const Eigen::Matrix3d& R);
+        void setVelocity(const Eigen::Vector3d& v);
+        void setPosition(const Eigen::Vector3d& p);
+        void setAngularVelocityBias(const Eigen::Vector3d& bg);
+        void setLinearAccelerationBias(const Eigen::Vector3d& ba);
 
         void copyDiagX(int n, Eigen::MatrixXd& BigX);
 

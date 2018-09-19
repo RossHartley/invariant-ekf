@@ -106,35 +106,35 @@ const int RobotState::dimP() {
     return P_.cols(); 
 }
 
-void RobotState::setX(Eigen::MatrixXd& X) { 
+void RobotState::setX(const Eigen::MatrixXd& X) { 
     unique_lock<mutex> mlock(mutex_);
     X_ = X; 
 }
-void RobotState::setTheta(Eigen::VectorXd& Theta) { 
+void RobotState::setTheta(const Eigen::VectorXd& Theta) { 
     unique_lock<mutex> mlock(mutex_);
     Theta_ = Theta; 
 }
-void RobotState::setP(Eigen::MatrixXd& P) { 
+void RobotState::setP(const Eigen::MatrixXd& P) { 
     unique_lock<mutex> mlock(mutex_);
     P_ = P; 
 }
-void RobotState::setRotation(Eigen::Matrix3d& R) { 
+void RobotState::setRotation(const Eigen::Matrix3d& R) { 
     unique_lock<mutex> mlock(mutex_);
     X_.block<3,3>(0,0) = R; 
 }
-void RobotState::setVelocity(Eigen::Vector3d& v) { 
+void RobotState::setVelocity(const Eigen::Vector3d& v) { 
     unique_lock<mutex> mlock(mutex_);
     X_.block<3,1>(0,3) = v; 
 }
-void RobotState::setPosition(Eigen::Vector3d& p) { 
+void RobotState::setPosition(const Eigen::Vector3d& p) { 
     unique_lock<mutex> mlock(mutex_);
     X_.block<3,1>(0,4) = p; 
 }
-void RobotState::setAngularVelocityBias(Eigen::Vector3d& bg) { 
+void RobotState::setAngularVelocityBias(const Eigen::Vector3d& bg) { 
     unique_lock<mutex> mlock(mutex_);
     Theta_.head(3) = bg; 
 }
-void RobotState::setLinearAccelerationBias(Eigen::Vector3d& ba) { 
+void RobotState::setLinearAccelerationBias(const Eigen::Vector3d& ba) { 
     unique_lock<mutex> mlock(mutex_);
     Theta_.tail(3) = ba; 
 }

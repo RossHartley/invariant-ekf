@@ -83,22 +83,40 @@ InEKF::InEKF(RobotState state) : state_(state) {}
 InEKF::InEKF(RobotState state, const mapIntVector3d& prior_landmarks) : state_(state), prior_landmarks_(prior_landmarks) {}
 
 // Return robot's current state
-RobotState InEKF::getState() { return state_; }
+RobotState InEKF::getState() { 
+    return state_; 
+}
 
 // Sets the robot's current state
-void InEKF::setState(RobotState state) { state_ = state; }
+void InEKF::setState(RobotState state) { 
+    state_ = state;
+}
 
 // Return noise params
-NoiseParams InEKF::getNoiseParams() { return noise_params_; }
+NoiseParams InEKF::getNoiseParams() { 
+    return noise_params_; 
+}
 
 // Sets the filter's noise parameters
-void InEKF::setNoiseParams(NoiseParams params) { noise_params_ = params; }
+void InEKF::setNoiseParams(NoiseParams params) { 
+    noise_params_ = params; 
+}
 
 // Return filter's prior (static) landmarks
-mapIntVector3d InEKF::getPriorLandmarks() { return prior_landmarks_; }
+mapIntVector3d InEKF::getPriorLandmarks() { 
+    return prior_landmarks_; 
+}
 
 // Set the filter's prior (static) landmarks
-void InEKF::setPriorLandmarks(const mapIntVector3d& prior_landmarks) { prior_landmarks_ = prior_landmarks; }
+void InEKF::setPriorLandmarks(const mapIntVector3d& prior_landmarks) { 
+    prior_landmarks_ = prior_landmarks; 
+}
+
+// Return filter's estimated landmarks
+map<int,int> InEKF::getEstimatedLandmarks() { 
+    lock_guard<mutex> mlock(estimated_landmarks_mutex_);
+    return estimated_landmarks_; 
+}
 
 // InEKF Propagation - Inertial Data
 void InEKF::Propagate(const Eigen::Matrix<double,6,1>& m, double dt) {
@@ -197,6 +215,7 @@ void InEKF::Correct(const Observation& obs) {
 
 // Create Observation from vector of landmark measurements
 void InEKF::CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks) {
+    lock_guard<mutex> mlock(estimated_landmarks_mutex_);
     Eigen::VectorXd Y;
     Eigen::VectorXd b;
     Eigen::MatrixXd H;

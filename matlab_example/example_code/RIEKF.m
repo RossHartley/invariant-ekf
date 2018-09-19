@@ -163,30 +163,30 @@ classdef RIEKF < matlab.System & matlab.system.mixin.Propagates %#codegen
             %   Date:   1/19/2018
             %
             
-            %%% FILTER TEST
-            obj.X = eye(7);
-            obj.P = eye(21);
-            
-            landmarks = zeros(4,3);
-            landmarks(:,1) = [1; 1;2;3];
-            landmarks(:,2) = [2; 4;5;6];
-            landmarks(:,3) = [3; 7;8;9];
-            obj.Ql = 0.1^2*eye(3);
-%             obj.Update_StaticLandmarks(landmarks);
-            obj.Update_Landmarks(landmarks);
-
-            m = [1;2;3;4;5;6];
-            dt = 0.1;
-            obj.Qg = 0.01^2*eye(3);
-            obj.Qa = 0.1^2*eye(3);
-            obj.Qbg = 0.00001^2*eye(3);
-            obj.Qba = 0.0001^2*eye(3);
-            obj.Predict_State(m(1:3), m(4:6), zeros(14,1), zeros(2,1), dt);
-            obj.Predict_State(m(1:3), m(4:6), zeros(14,1), zeros(2,1), dt);
-
-%             obj.Update_StaticLandmarks(landmarks);
-            obj.Update_Landmarks(landmarks);
-            %%%%%%
+%             %%% FILTER TEST
+%             obj.X = eye(7);
+%             obj.P = eye(21);
+%             
+%             landmarks = zeros(4,3);
+%             landmarks(:,1) = [1; 1;2;3];
+%             landmarks(:,2) = [2; 4;5;6];
+%             landmarks(:,3) = [3; 7;8;9];
+%             obj.Ql = 0.1^2*eye(3);
+% %             obj.Update_StaticLandmarks(landmarks);
+%             obj.Update_Landmarks(landmarks);    
+% 
+%             m = [1;2;3;4;5;6];
+%             dt = 0.1;
+%             obj.Qg = 0.01^2*eye(3);
+%             obj.Qa = 0.1^2*eye(3);
+%             obj.Qbg = 0.00001^2*eye(3);
+%             obj.Qba = 0.0001^2*eye(3);
+%             obj.Predict_State(m(1:3), m(4:6), zeros(14,1), zeros(2,1), dt);
+%             obj.Predict_State(m(1:3), m(4:6), zeros(14,1), zeros(2,1), dt);
+% 
+% %             obj.Update_StaticLandmarks(landmarks);
+%             obj.Update_Landmarks(landmarks);
+%             %%%%%%
             
             
             % Initialize bias

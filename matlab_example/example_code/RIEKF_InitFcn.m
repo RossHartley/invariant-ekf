@@ -12,12 +12,12 @@ gyro_true_bias_init = [0;0;0];
 accel_true_bias_init = [0;0;0];
 
 % Set gyroscope noise std
-gyro_true_noise_std = 0.001*ones(3,1); 
-gyro_true_bias_noise_std = 0.0001*ones(3,1);
+gyro_true_noise_std = 0.00*ones(3,1); 
+gyro_true_bias_noise_std = 0.000*ones(3,1);
 
 % Set accelerometer noise std
-accel_true_noise_std = 0.01*ones(3,1); 
-accel_true_bias_noise_std = 0.0001*ones(3,1);
+accel_true_noise_std = 0.0*ones(3,1); 
+accel_true_bias_noise_std = 0.000*ones(3,1);
 
 % Landmark position measurement noise
 landmark_true_noise_std = 0.00*ones(3,1);

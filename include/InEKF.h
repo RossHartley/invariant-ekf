@@ -5,6 +5,7 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <mutex>
 #include <algorithm>
 #include "RobotState.h"
 #include "LieGroup.h"
@@ -87,6 +88,7 @@ class InEKF {
         RobotState getState();
         NoiseParams getNoiseParams();
         mapIntVector3d getPriorLandmarks();
+        std::map<int,int> getEstimatedLandmarks();
         void setState(RobotState state);
         void setNoiseParams(NoiseParams params);
         void setPriorLandmarks(const mapIntVector3d& prior_landmarks);
@@ -101,6 +103,7 @@ class InEKF {
         const Eigen::Vector3d g_ = (Eigen::VectorXd(3) << 0,0,-9.81).finished(); // Gravity
         mapIntVector3d prior_landmarks_;
         std::map<int,int> estimated_landmarks_;
+        std::mutex estimated_landmarks_mutex_;
 };
 
 } // end inekf namespace

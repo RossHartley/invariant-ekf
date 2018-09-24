@@ -1,5 +1,5 @@
 # inekf
-This repository contains an a C++ library that implements an invariant extended Kalman filter (InEKF) for aided inertial navigation. 
+This repository contains a C++ library that implements an invariant extended Kalman filter (InEKF) for aided inertial navigation. 
 
 This filter can be used to estimate a robot's 3D pose and velocity using an IMU motion model for propagation. The following measurements are currently supported:
 * Landmark position measurements
@@ -13,6 +13,8 @@ Inclusion of kinematic and contact measurements is presented in:
 
 A ROS wrapper for the filter is available at [https://github.com/RossHartley/invariant-ekf-ros](https://github.com/RossHartley/invariant-ekf-ros).
 
+## Installation
+TODO
 
 ## Examples
 TODO

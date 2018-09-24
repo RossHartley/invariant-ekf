@@ -14,6 +14,7 @@ NoiseParams::NoiseParams() {
     setGyroscopeBiasNoise(0.00001);
     setAccelerometerBiasNoise(0.0001);
     setLandmarkNoise(0.1);
+    setContactNoise(0.1);
 }
 
 void NoiseParams::setGyroscopeNoise(double std) { Qg_ = std*std*Eigen::Matrix3d::Identity(); }
@@ -36,11 +37,16 @@ void NoiseParams::setLandmarkNoise(double std) { Ql_ = std*std*Eigen::Matrix3d::
 void NoiseParams::setLandmarkNoise(const Eigen::Vector3d& std) { Ql_ << std(0)*std(0),0,0, 0,std(1)*std(1),0, 0,0,std(2)*std(2); }
 void NoiseParams::setLandmarkNoise(const Eigen::Matrix3d& cov) { Ql_ = cov; }
 
+void NoiseParams::setContactNoise(double std) { Qc_ = std*std*Eigen::Matrix3d::Identity(); }
+void NoiseParams::setContactNoise(const Eigen::Vector3d& std) { Qc_ << std(0)*std(0),0,0, 0,std(1)*std(1),0, 0,0,std(2)*std(2); }
+void NoiseParams::setContactNoise(const Eigen::Matrix3d& cov) { Qc_ = cov; }
+
 Eigen::Matrix3d NoiseParams::getGyroscopeCov() { return Qg_; }
 Eigen::Matrix3d NoiseParams::getAccelerometerCov() { return Qa_; }
 Eigen::Matrix3d NoiseParams::getGyroscopeBiasCov() { return Qbg_; }
 Eigen::Matrix3d NoiseParams::getAccelerometerBiasCov() { return Qba_; }
 Eigen::Matrix3d NoiseParams::getLandmarkCov() { return Ql_; }
+Eigen::Matrix3d NoiseParams::getContactCov() { return Qc_; }
 
 std::ostream& operator<<(std::ostream& os, const NoiseParams& p) {
     os << "--------- Noise Params -------------" << endl;
@@ -49,6 +55,7 @@ std::ostream& operator<<(std::ostream& os, const NoiseParams& p) {
     os << "Gyroscope Bias Covariance:\n" << p.Qbg_ << endl;
     os << "Accelerometer Bias Covariance:\n" << p.Qba_ << endl;
     os << "Landmark Covariance:\n" << p.Ql_ << endl;
+    os << "Contact Covariance:\n" << p.Qc_ << endl;
     os << "-----------------------------------" << endl;
 }
 
@@ -192,7 +199,7 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& m, double dt) {
     Qk.block<3,3>(0,0) = noise_params_.getGyroscopeCov(); 
     Qk.block<3,3>(3,3) = noise_params_.getAccelerometerCov();
     for(auto it=estimated_contact_positions_.begin(); it!=estimated_contact_positions_.end(); ++it) {
-        Qk.block<3,3>(it->second,it->second) = 123*Eigen::Matrix3d::Identity(); // Contact noise terms
+        Qk.block<3,3>(3+3*(it->second-3),3+3*(it->second-3)) = noise_params_.getContactCov(); // Contact noise terms
     }
     Qk.block<3,3>(dimP-dimTheta,dimP-dimTheta) = noise_params_.getGyroscopeBiasCov();
     Qk.block<3,3>(dimP-dimTheta+3,dimP-dimTheta+3) = noise_params_.getAccelerometerBiasCov();
@@ -557,8 +564,8 @@ void InEKF::CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kin
             F.block(state_.dimP()-state_.dimTheta()+3,state_.dimP()-state_.dimTheta(),state_.dimTheta(),state_.dimTheta()) = Eigen::MatrixXd::Identity(state_.dimTheta(),state_.dimTheta()); // for theta
             Eigen::MatrixXd G = Eigen::MatrixXd::Zero(F.rows(),3);
             G.block(G.rows()-state_.dimTheta()-3,0,3,3) = R;
-            Eigen::Matrix<double,6,6> J = get<2>(*it);
-            P_aug = (F*P_aug*F.transpose() + G*J.block<3,3>(3,3)*G.transpose()).eval();
+            Eigen::Matrix<double,6,6> J_bc = get<2>(*it);
+            P_aug = (F*P_aug*F.transpose() + G*J_bc.block<3,3>(3,3)*G.transpose()).eval();
 
             // Update state and covariance
             state_.setX(X_aug);

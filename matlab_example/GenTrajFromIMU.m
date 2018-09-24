@@ -10,7 +10,8 @@ R = zeros(3,3,N+1);
 v = zeros(3,N+1);
 p = zeros(3,N+1);
 b = zeros(6,N+1);
-g = [0;0;-9.81]; % gravity
+% g = [0;0;-9.81]; % gravity
+g = [0;0;0]; % gravity
 
 % Set initial state
 if nargin < 4

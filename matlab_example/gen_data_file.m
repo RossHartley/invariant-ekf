@@ -32,27 +32,49 @@ fclose(fileID);
 
 
 %% Generate Trajectory from IMU
-imu_rate = 200;
+imu_rate = 400;
 landmark_rate = 20;
 t = 0:(1/imu_rate):100;
 N = length(t)-1;
-angular_velocity = repmat([0;0;0.1], 1, N);
-linear_acceleration = repmat([0.005;0;9.81+0.001], 1, N);
-[R, v, p, b] = GenTrajFromIMU(t,angular_velocity,linear_acceleration);
+angular_velocity = repmat([0.1;0.1;0.1], 1, N);
+linear_acceleration = repmat([0;0;0], 1, N);
+R0 = eye(3);
+v0 = [0;0;0];
+p0 = [0;0;0];
+[R, v, p, b] = GenTrajFromIMU(t,angular_velocity,linear_acceleration, R0, v0, p0);
+% Add back gravity
+for i=1:N
+    linear_acceleration(:,i) = linear_acceleration(:,i) + R(:,:,i)'*[0;0;9.81];
+end
+figure;
+plot3(p(1,:), p(2,:), p(3,:))
+
+bg = [0.1;0.2;0.3];
+ba = [0.1;0.2;0.3];
+for i=1:N
+    angular_velocity(:,i) = angular_velocity(:,i) + mvnrnd(zeros(3,1),0.01^2*eye(3))' + bg;
+    linear_acceleration(:,i) = linear_acceleration(:,i) + mvnrnd(zeros(3,1),0.1^2*eye(3))' + ba;
+end
 
 % Generate Landmark measurements
-landmark_positions = [[1; 1;1;0],... % [Landmark_ID; {W}_p_{WL}]
-                      [2; 1;-1;0],...
-                      [3; 1;0;1]];
+landmark_positions = [[0; 1;1;0],... % [Landmark_ID; {W}_p_{WL}]
+                      [1; 1;-1;0],...
+                      [2; 2;0;1]];
 
 landmark_measurements = nan(4,size(landmark_positions,2),N);
 for i=1:floor(imu_rate/landmark_rate):N
     landmark_measurements(:,:,i) = [landmark_positions(1,:);
-        R(:,:,i)'*(landmark_positions(2:end,:) - p(:,i))];
+        R(:,:,i)'*(landmark_positions(2:end,:) - p(:,i))] + [0; mvnrnd(zeros(3,1),0.1^2*eye(3))'];
 end
 
-figure;
-plot3(p(1,:), p(2,:), p(3,:))
+%%
+% R = eye(3);
+% p = 
+% b = zeros(6,1);
+% v0 = [0;0;0];
+% [a, w, v] = GenIMUFromTraj(t, R, p, b, v0);
+
+
 
 %% Write data to file
 fileID = fopen('sim_data_2.txt','w');

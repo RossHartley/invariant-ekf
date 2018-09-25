@@ -1,3 +1,15 @@
+%----------------------------------------------------------------------------
+%  Copyright 2018, Ross Hartley
+%  All Rights Reserved
+%  See LICENSE for the license information
+%---------------------------------------------------------------------------- 
+
+%   @file   RIEKF.m
+%   @author Ross Hartley
+%   @brief  Matlab system object to implement contact-aided invariant extended Kalman filtering
+%   @date   September 25, 2018
+ 
+
 % State Estimator
 classdef RIEKF < matlab.System & matlab.system.mixin.Propagates %#codegen
     

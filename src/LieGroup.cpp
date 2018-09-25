@@ -1,3 +1,16 @@
+/* ----------------------------------------------------------------------------
+ * Copyright 2018, Ross Hartley
+ * All Rights Reserved
+ * See LICENSE for the license information
+ * -------------------------------------------------------------------------- */
+
+/**
+ *  @file   LieGroup.cpp
+ *  @author Ross Hartley
+ *  @brief  Source file for various Lie Group functions 
+ *  @date   September 25, 2018
+ **/
+
 #include "LieGroup.h"
 
 namespace inekf {

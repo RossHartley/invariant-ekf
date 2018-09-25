@@ -1,3 +1,15 @@
+/* ----------------------------------------------------------------------------
+ * Copyright 2018, Ross Hartley
+ * All Rights Reserved
+ * See LICENSE for the license information
+ * -------------------------------------------------------------------------- */
+
+/**
+ *  @file   propagation_speed.cpp
+ *  @author Ross Hartley
+ *  @brief  Test to determine average propagation speed
+ *  @date   September 25, 2018
+ **/
 #include <iostream>
 #include <fstream>
 #include <string>

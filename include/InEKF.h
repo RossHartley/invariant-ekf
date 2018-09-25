@@ -1,3 +1,16 @@
+/* ----------------------------------------------------------------------------
+ * Copyright 2018, Ross Hartley
+ * All Rights Reserved
+ * See LICENSE for the license information
+ * -------------------------------------------------------------------------- */
+
+/**
+ *  @file   InEKF.h
+ *  @author Ross Hartley
+ *  @brief  Header file for Invariant EKF 
+ *  @date   September 25, 2018
+ **/
+
 #ifndef INEKF_H
 #define INEKF_H 
 #include <Eigen/Dense>

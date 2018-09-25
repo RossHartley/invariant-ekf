@@ -1,3 +1,16 @@
+/* ----------------------------------------------------------------------------
+ * Copyright 2018, Ross Hartley
+ * All Rights Reserved
+ * See LICENSE for the license information
+ * -------------------------------------------------------------------------- */
+
+/**
+ *  @file   RobotState.h
+ *  @author Ross Hartley
+ *  @brief  Header file for RobotState
+ *  @date   September 25, 2018
+ **/
+
 #ifndef ROBOTSTATE_H
 #define ROBOTSTATE_H 
 #include <Eigen/Dense>

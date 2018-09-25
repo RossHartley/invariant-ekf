@@ -1,3 +1,16 @@
+/* ----------------------------------------------------------------------------
+ * Copyright 2018, Ross Hartley
+ * All Rights Reserved
+ * See LICENSE for the license information
+ * -------------------------------------------------------------------------- */
+
+/**
+ *  @file   LieGroup.h
+ *  @author Ross Hartley
+ *  @brief  Header file for various Lie Group functions 
+ *  @date   September 25, 2018
+ **/
+
 #ifndef LIEGROUP_H
 #define LIEGROUP_H 
 #include <Eigen/Dense>

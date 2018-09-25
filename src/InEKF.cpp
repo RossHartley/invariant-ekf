@@ -1,3 +1,16 @@
+/* ----------------------------------------------------------------------------
+ * Copyright 2018, Ross Hartley
+ * All Rights Reserved
+ * See LICENSE for the license information
+ * -------------------------------------------------------------------------- */
+
+/**
+ *  @file   InEKF.cpp
+ *  @author Ross Hartley
+ *  @brief  Source file for Invariant EKF 
+ *  @date   September 25, 2018
+ **/
+
 #include "InEKF.h"
 
 namespace inekf {

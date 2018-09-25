@@ -1,3 +1,16 @@
+/* ----------------------------------------------------------------------------
+ * Copyright 2018, Ross Hartley
+ * All Rights Reserved
+ * See LICENSE for the license information
+ * -------------------------------------------------------------------------- */
+
+/**
+ *  @file   RobotState.h
+ *  @author Ross Hartley
+ *  @brief  Source file for RobotState
+ *  @date   September 25, 2018
+ **/
+
 #include "RobotState.h"
 #include "LieGroup.h"
 

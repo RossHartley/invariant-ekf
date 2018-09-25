@@ -1,3 +1,16 @@
+/* ----------------------------------------------------------------------------
+ * Copyright 2018, Ross Hartley
+ * All Rights Reserved
+ * See LICENSE for the license information
+ * -------------------------------------------------------------------------- */
+
+/**
+ *  @file   landmarks.cpp
+ *  @author Ross Hartley
+ *  @brief  Example of invariant filtering for landmark-aided inertial navigation
+ *  @date   September 25, 2018
+ **/
+
 #include <iostream>
 #include <fstream>
 #include <string>

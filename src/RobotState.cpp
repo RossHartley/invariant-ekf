@@ -98,11 +98,11 @@ const Eigen::Vector3d RobotState::getPosition() {
     unique_lock<mutex> mlock(mutex_);
     return X_.block<3,1>(0,4); 
 }
-const Eigen::Vector3d RobotState::getAngularVelocityBias() { 
+const Eigen::Vector3d RobotState::getGyroscopeBias() { 
     unique_lock<mutex> mlock(mutex_);
     return Theta_.head(3); 
 }
-const Eigen::Vector3d RobotState::getLinearAccelerationBias() { 
+const Eigen::Vector3d RobotState::getAccelerometerBias() { 
     unique_lock<mutex> mlock(mutex_);
     return Theta_.tail(3); 
 }
@@ -143,11 +143,11 @@ void RobotState::setPosition(const Eigen::Vector3d& p) {
     unique_lock<mutex> mlock(mutex_);
     X_.block<3,1>(0,4) = p; 
 }
-void RobotState::setAngularVelocityBias(const Eigen::Vector3d& bg) { 
+void RobotState::setGyroscopeBias(const Eigen::Vector3d& bg) { 
     unique_lock<mutex> mlock(mutex_);
     Theta_.head(3) = bg; 
 }
-void RobotState::setLinearAccelerationBias(const Eigen::Vector3d& ba) { 
+void RobotState::setAccelerometerBias(const Eigen::Vector3d& ba) { 
     unique_lock<mutex> mlock(mutex_);
     Theta_.tail(3) = ba; 
 }

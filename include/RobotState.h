@@ -41,8 +41,8 @@ class RobotState {
         const Eigen::Matrix3d getRotation();
         const Eigen::Vector3d getVelocity();
         const Eigen::Vector3d getPosition();
-        const Eigen::Vector3d getAngularVelocityBias();
-        const Eigen::Vector3d getLinearAccelerationBias();
+        const Eigen::Vector3d getGyroscopeBias();
+        const Eigen::Vector3d getAccelerometerBias();
         const int dimX();
         const int dimTheta();
         const int dimP();
@@ -53,12 +53,11 @@ class RobotState {
         void setRotation(const Eigen::Matrix3d& R);
         void setVelocity(const Eigen::Vector3d& v);
         void setPosition(const Eigen::Vector3d& p);
-        void setAngularVelocityBias(const Eigen::Vector3d& bg);
-        void setLinearAccelerationBias(const Eigen::Vector3d& ba);
+        void setGyroscopeBias(const Eigen::Vector3d& bg);
+        void setAccelerometerBias(const Eigen::Vector3d& ba);
 
         void copyDiagX(int n, Eigen::MatrixXd& BigX);
 
-        friend class InEKF;
         friend std::ostream& operator<<(std::ostream& os, const RobotState& s);  
 
     private:

@@ -19,60 +19,6 @@ using namespace std;
 
 void removeRowAndColumn(Eigen::MatrixXd& M, int index);
 
-// ------------ NoiseParams -------------
-// Default Constructor
-NoiseParams::NoiseParams() {
-    setGyroscopeNoise(0.01);
-    setAccelerometerNoise(0.1);
-    setGyroscopeBiasNoise(0.00001);
-    setAccelerometerBiasNoise(0.0001);
-    setLandmarkNoise(0.1);
-    setContactNoise(0.1);
-}
-
-void NoiseParams::setGyroscopeNoise(double std) { Qg_ = std*std*Eigen::Matrix3d::Identity(); }
-void NoiseParams::setGyroscopeNoise(const Eigen::Vector3d& std) { Qg_ << std(0)*std(0),0,0, 0,std(1)*std(1),0, 0,0,std(2)*std(2); }
-void NoiseParams::setGyroscopeNoise(const Eigen::Matrix3d& cov) { Qg_ = cov; }
-
-void NoiseParams::setAccelerometerNoise(double std) { Qa_ = std*std*Eigen::Matrix3d::Identity(); }
-void NoiseParams::setAccelerometerNoise(const Eigen::Vector3d& std) { Qa_ << std(0)*std(0),0,0, 0,std(1)*std(1),0, 0,0,std(2)*std(2); }
-void NoiseParams::setAccelerometerNoise(const Eigen::Matrix3d& cov) { Qa_ = cov; } 
-
-void NoiseParams::setGyroscopeBiasNoise(double std) { Qbg_ = std*std*Eigen::Matrix3d::Identity(); }
-void NoiseParams::setGyroscopeBiasNoise(const Eigen::Vector3d& std) { Qbg_ << std(0)*std(0),0,0, 0,std(1)*std(1),0, 0,0,std(2)*std(2); }
-void NoiseParams::setGyroscopeBiasNoise(const Eigen::Matrix3d& cov) { Qbg_ = cov; }
-
-void NoiseParams::setAccelerometerBiasNoise(double std) { Qba_ = std*std*Eigen::Matrix3d::Identity(); }
-void NoiseParams::setAccelerometerBiasNoise(const Eigen::Vector3d& std) { Qba_ << std(0)*std(0),0,0, 0,std(1)*std(1),0, 0,0,std(2)*std(2); }
-void NoiseParams::setAccelerometerBiasNoise(const Eigen::Matrix3d& cov) { Qba_ = cov; }
-
-void NoiseParams::setLandmarkNoise(double std) { Ql_ = std*std*Eigen::Matrix3d::Identity(); }
-void NoiseParams::setLandmarkNoise(const Eigen::Vector3d& std) { Ql_ << std(0)*std(0),0,0, 0,std(1)*std(1),0, 0,0,std(2)*std(2); }
-void NoiseParams::setLandmarkNoise(const Eigen::Matrix3d& cov) { Ql_ = cov; }
-
-void NoiseParams::setContactNoise(double std) { Qc_ = std*std*Eigen::Matrix3d::Identity(); }
-void NoiseParams::setContactNoise(const Eigen::Vector3d& std) { Qc_ << std(0)*std(0),0,0, 0,std(1)*std(1),0, 0,0,std(2)*std(2); }
-void NoiseParams::setContactNoise(const Eigen::Matrix3d& cov) { Qc_ = cov; }
-
-Eigen::Matrix3d NoiseParams::getGyroscopeCov() { return Qg_; }
-Eigen::Matrix3d NoiseParams::getAccelerometerCov() { return Qa_; }
-Eigen::Matrix3d NoiseParams::getGyroscopeBiasCov() { return Qbg_; }
-Eigen::Matrix3d NoiseParams::getAccelerometerBiasCov() { return Qba_; }
-Eigen::Matrix3d NoiseParams::getLandmarkCov() { return Ql_; }
-Eigen::Matrix3d NoiseParams::getContactCov() { return Qc_; }
-
-std::ostream& operator<<(std::ostream& os, const NoiseParams& p) {
-    os << "--------- Noise Params -------------" << endl;
-    os << "Gyroscope Covariance:\n" << p.Qg_ << endl;
-    os << "Accelerometer Covariance:\n" << p.Qa_ << endl;
-    os << "Gyroscope Bias Covariance:\n" << p.Qbg_ << endl;
-    os << "Accelerometer Bias Covariance:\n" << p.Qba_ << endl;
-    os << "Landmark Covariance:\n" << p.Ql_ << endl;
-    os << "Contact Covariance:\n" << p.Qc_ << endl;
-    os << "-----------------------------------" << endl;
-}
-
-
 // ------------ Observation -------------
 // Default constructor
 Observation::Observation(Eigen::VectorXd& Y, Eigen::VectorXd& b, Eigen::MatrixXd& H, Eigen::MatrixXd& N, Eigen::MatrixXd& PI) :
@@ -91,8 +37,6 @@ ostream& operator<<(ostream& os, const Observation& o) {
     os << "-----------------------------------";
     return os;  
 } 
-
-
 
 // ------------ InEKF -------------
 // Default constructor
@@ -385,7 +329,6 @@ void InEKF::CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks) {
     // Correct state using stacked observation
     Observation obs(Y,b,H,N,PI);
     if (!obs.empty()) {
-        //cout << obs << endl;
         this->Correct(obs);
     }
 
@@ -423,7 +366,6 @@ void InEKF::CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks) {
     return;    
 }
 
-
 void InEKF::CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kinematics) {
     lock_guard<mutex> mlock(estimated_contacts_mutex_);
     Eigen::VectorXd Y;
@@ -452,11 +394,10 @@ void InEKF::CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kin
         // See if we can find id estimated_contact_positions
         auto it_estimated = estimated_contact_positions_.find(get<0>(*it));
         bool found = it_estimated!=estimated_contact_positions_.end();
-        
+
         // If contact is not indicated and id is found in estimated_contacts_, then remove state
         if (!contact_indicated && found) {
             remove_contacts.push_back(*it_estimated); // Add id to remove list
-
         //  If contact is indicated and id is not found i n estimated_contacts_, then augment state
         } else if (contact_indicated && !found) {
             new_contacts.push_back(*it); // Add to augment list
@@ -513,11 +454,9 @@ void InEKF::CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kin
         }
     }
 
-
     // Correct state using stacked observation
     Observation obs(Y,b,H,N,PI);
     if (!obs.empty()) {
-        // cout << obs << endl;
         this->Correct(obs);
     }
 
@@ -544,6 +483,11 @@ void InEKF::CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kin
                     it2->second -= 1;
             }
             for (auto it2=estimated_contact_positions_.begin(); it2!=estimated_contact_positions_.end(); ++it2) {
+                if (it2->second > it->second) 
+                    it2->second -= 1;
+            }
+            // We also need to update the indices of remove_contacts in the case where multiple contacts are being removed at once
+            for (auto it2=it; it2!=remove_contacts.end(); ++it2) {
                 if (it2->second > it->second) 
                     it2->second -= 1;
             }

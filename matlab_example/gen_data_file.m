@@ -2,12 +2,14 @@
 angular_velocity = w_noisy;
 linear_acceleration = a_noisy;
 landmark_measurements = l_noisy;
+load('data/measurements/contact.mat')
+load('data/measurements/encoders.mat')
 
 %% Write data to file
 fileID = fopen('sim_data.txt','w');
 t = angular_velocity.time;
 N = length(t);
-for i=1:N
+for i=10:N
     %IMU 0 0 0 0 0 0 9.81
     w = angular_velocity.signals.values(i,:);
     a = linear_acceleration.signals.values(i,:);
@@ -30,6 +32,68 @@ for i=1:N
 end
 fclose(fileID);
 
+%% Write data to file
+Cov_e = deg2rad(0.5)^2*eye(14);
+fileID = fopen('sim_data.txt','w');
+t = angular_velocity.time;
+N = length(t);
+for i=10:N
+    % IMU t 0 0 0 0 0 9.81
+    w = angular_velocity.signals.values(i,:);
+    a = linear_acceleration.signals.values(i,:);
+    formatSpec = 'IMU %f %f %f %f %f %f %f\n';
+    fprintf(fileID,formatSpec,t(i),w(1),w(2),w(3),a(1),a(2),a(3));
+    
+    % CONTACT t ID 0 
+    c = contact.Data(i,:)';
+    if c(1) < 0.9
+        c(1) = 0;
+    else
+        c(1) = 1;
+    end
+    if c(2) < 0.9
+        c(2) = 0;
+    else
+        c(2) = 1;
+    end
+    formatSpec = 'CONTACT %f %f %f %f %f\n'; 
+    fprintf(fileID,formatSpec,t(i),0,c(1),1,c(2));
+
+    % KINEMATICS t ID H Cov
+    e = encoders.Data(i,:)';
+    H_L = reshape([R_VectorNav_to_LeftToeBottom(e), p_VectorNav_to_LeftToeBottom(e); 0,0,0,1]',1,[]);
+    J_L = [zeros(3,14); J_VectorNav_to_LeftToeBottom(e)];
+    Cov_L = reshape((J_L*Cov_e*J_L')',1,[]);
+    H_R = reshape([R_VectorNav_to_RightToeBottom(e), p_VectorNav_to_RightToeBottom(e); 0,0,0,1]',1,[]);
+    J_R = [zeros(3,14); J_VectorNav_to_RightToeBottom(e)]; 
+    Cov_R = reshape((J_R*Cov_e*J_R')',1,[]);
+%     keyboard
+    formatSpec = 'KINEMATIC %f'; % t
+    str = {};
+    formatSpec = [formatSpec, ' %f']; %ID
+    str = horzcat(str,{0});
+    for j=1:16
+        formatSpec = [formatSpec, ' %f']; % H
+        str = horzcat(str,{H_L(j)});
+    end
+    for j=1:36
+        formatSpec = [formatSpec, ' %f']; % Cov
+        str = horzcat(str,{Cov_L(j)});
+    end
+    formatSpec = [formatSpec, ' %f']; %ID
+    str = horzcat(str,{1});
+    for j=1:16
+        formatSpec = [formatSpec, ' %f']; % H
+        str = horzcat(str,{H_R(j)});
+    end
+    for j=1:36
+        formatSpec = [formatSpec, ' %f']; % Cov
+        str = horzcat(str,{Cov_R(j)});
+    end
+    formatSpec = [formatSpec, '\n'];
+    fprintf(fileID,formatSpec,t(i),str{:});
+end
+fclose(fileID);
 
 %% Generate Trajectory from IMU
 imu_rate = 400;

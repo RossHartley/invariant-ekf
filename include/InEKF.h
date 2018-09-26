@@ -22,6 +22,7 @@
 #include <mutex>
 #include <algorithm>
 #include "RobotState.h"
+#include "NoiseParams.h"
 #include "LieGroup.h"
 
 namespace inekf {
@@ -29,57 +30,7 @@ namespace inekf {
 typedef std::map<int,Eigen::Vector3d, std::less<int>, Eigen::aligned_allocator<std::pair<const int,Eigen::Vector3d>>> mapIntVector3d;
 typedef std::vector<std::pair<int,Eigen::Vector3d>, Eigen::aligned_allocator<std::pair<int,Eigen::Vector3d>>> vectorPairIntVector3d;
 typedef std::vector<std::tuple<int,Eigen::Matrix4d,Eigen::Matrix<double,6,6>>, Eigen::aligned_allocator<std::tuple<int,Eigen::Matrix4d,Eigen::Matrix<double,6,6>>>> vectorTupleIntMatrix4dMatrix6d;
-
-class NoiseParams {
-
-    public:
-        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-        NoiseParams();
-
-        void setGyroscopeNoise(double std);
-        void setGyroscopeNoise(const Eigen::Vector3d& std);
-        void setGyroscopeNoise(const Eigen::Matrix3d& cov);
-
-        void setAccelerometerNoise(double std);
-        void setAccelerometerNoise(const Eigen::Vector3d& std);
-        void setAccelerometerNoise(const Eigen::Matrix3d& cov);  
-
-        void setGyroscopeBiasNoise(double std);
-        void setGyroscopeBiasNoise(const Eigen::Vector3d& std);
-        void setGyroscopeBiasNoise(const Eigen::Matrix3d& cov);
-
-        void setAccelerometerBiasNoise(double std);
-        void setAccelerometerBiasNoise(const Eigen::Vector3d& std);
-        void setAccelerometerBiasNoise(const Eigen::Matrix3d& cov);  
-
-        void setLandmarkNoise(double std);
-        void setLandmarkNoise(const Eigen::Vector3d& std);
-        void setLandmarkNoise(const Eigen::Matrix3d& cov);
-
-        void setContactNoise(double std);
-        void setContactNoise(const Eigen::Vector3d& std);
-        void setContactNoise(const Eigen::Matrix3d& cov);
-
-        Eigen::Matrix3d getGyroscopeCov();
-        Eigen::Matrix3d getAccelerometerCov();
-        Eigen::Matrix3d getGyroscopeBiasCov();
-        Eigen::Matrix3d getAccelerometerBiasCov();
-        Eigen::Matrix3d getLandmarkCov();
-        Eigen::Matrix3d getContactCov();
-
-        friend std::ostream& operator<<(std::ostream& os, const NoiseParams& p);  
-
-    private:
-        Eigen::Matrix3d Qg_;
-        Eigen::Matrix3d Qa_;
-        Eigen::Matrix3d Qbg_;
-        Eigen::Matrix3d Qba_;
-        Eigen::Matrix3d Ql_;
-        Eigen::Matrix3d Qc_;
-};
-
-
-
+typedef std::vector<std::tuple<int,int,Eigen::Matrix4d,Eigen::Matrix<double,6,6>>, Eigen::aligned_allocator<std::tuple<int,int,Eigen::Matrix4d,Eigen::Matrix<double,6,6>>>> vectorTupleIntIntMatrix4dMatrix6d;
 
 class Observation {
 
@@ -121,6 +72,8 @@ class InEKF {
         void Correct(const Observation& obs);
         void CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks);
         void CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kinematics);
+        // TODO: Kinematics between two contact points (useful to prevent double counting if you want multiple contacts per foot)
+        // TODO: void CorrectKinematics(const vectorTupleIntIntMatrix4dMatrix6d& measured_kinematics); 
 
     private:
         RobotState state_;

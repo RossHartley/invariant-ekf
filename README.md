@@ -13,8 +13,24 @@ Inclusion of kinematic and contact measurements is presented in:
 
 A ROS wrapper for the filter is available at [https://github.com/RossHartley/invariant-ekf-ros](https://github.com/RossHartley/invariant-ekf-ros).
 
-## Installation
-TODO
+## Setup
+### Requirements
+* CMake 2.8.3 or later
+* g++ 5.4.0 or later
+* [Eigen3 C++ Library](http://eigen.tuxfamily.org/index.php?title=Main_Page)
+
+### Installation Using CMake
+```
+mkdir build
+cd build 
+cmake .. 
+make
+``` 
+invariant-ekf can be easily included in your cmake project by adding the following to your CMakeLists.txt:
+```
+find_package(inekf) 
+include_directories(${inekf_INCLUDE_DIRS})
+```
 
 ## Examples
 TODO

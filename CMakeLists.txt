@@ -47,11 +47,13 @@ file(GLOB src_files
 link_directories(${PROJECT_SOURCE_DIR}/${Boost_LIBRARY_DIRS})
 
 add_executable(landmarks ${PROJECT_SOURCE_DIR}/src/examples/landmarks.cpp ${src_files})
+add_executable(kinematics ${PROJECT_SOURCE_DIR}/src/examples/kinematics.cpp ${src_files})
 add_executable(propagation_speed ${PROJECT_SOURCE_DIR}/src/tests/propagation_speed.cpp ${src_files})
 add_executable(correction_speed ${PROJECT_SOURCE_DIR}/src/tests/correction_speed.cpp ${src_files})
 add_executable(filter_math ${PROJECT_SOURCE_DIR}/src/tests/filter_math.cpp ${src_files})
 
 target_link_libraries(landmarks ${Boost_LIBRARIES})
+target_link_libraries(kinematics ${Boost_LIBRARIES})
 target_link_libraries(correction_speed ${Boost_LIBRARIES})
 target_link_libraries(filter_math ${Boost_LIBRARIES})
 
@@ -60,19 +62,20 @@ add_library(inekf SHARED
     "${PROJECT_SOURCE_DIR}/src/InEKF.cpp"
     "${PROJECT_SOURCE_DIR}/src/RobotState.cpp"
     "${PROJECT_SOURCE_DIR}/src/LieGroup.cpp"
+    "${PROJECT_SOURCE_DIR}/src/NoiseParams.cpp"
 )
 set_target_properties(inekf PROPERTIES LIBRARY_OUTPUT_NAME inekf)
 
 
 
 #=============================================
-# to allow find_package() on kindr
+# to allow find_package() on inekf
 #=============================================
 # 
-# the following case be used in an external project requiring kindr:
+# the following case be used in an external project requiring inekf:
 #  ...
-#  find_package(kindr) 
-#  include_directories(${kindr_INCLUDE_DIRS}) 
+#  find_package(inekf) 
+#  include_directories(${inekf_INCLUDE_DIRS}) 
 #  ...
 
 # NOTE: the following will support find_package for 1) local build (make) and 2) for installed files (make install)

@@ -1,20 +1,14 @@
 # Specify the minimum version for CMake
 cmake_minimum_required(VERSION 2.8.3)
-# set(CMAKE_CXX_STANDARD 11)
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g") # Debugging
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}") 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3 -DEIGEN_NO_DEBUG -march=native -Wl,--no-as-needed") 
-SET(CMAKE_CXX_COMPILER /usr/bin/g++)
-# -O3 -DEIGEN_NO_DEBUG sped up large matrix multiplication by a factor of 10
-# -march=native further sped up large matrix multiplication by a factor of 2
-
 # Project's name
 project(inekf)
 
-# Set the output folder where your program will be created
-#set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/bin)
-#set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
-#set(LIBRARY_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/lib)    
+# Set compiler flags
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3 -DEIGEN_NO_DEBUG -march=native -Wl,--no-as-needed") 
+SET(CMAKE_CXX_COMPILER /usr/bin/g++)
+
+
+# Set the output folder where your program will be created  
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
 

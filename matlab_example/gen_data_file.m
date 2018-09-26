@@ -6,7 +6,7 @@ load('data/measurements/contact.mat')
 load('data/measurements/encoders.mat')
 
 %% Write data to file
-fileID = fopen('sim_data.txt','w');
+fileID = fopen('imu_landmark_measurements.txt','w');
 t = angular_velocity.time;
 N = length(t);
 for i=10:N
@@ -34,7 +34,7 @@ fclose(fileID);
 
 %% Write data to file
 Cov_e = deg2rad(0.5)^2*eye(14);
-fileID = fopen('sim_data.txt','w');
+fileID = fopen('imu_kinematic_measurements.txt','w');
 t = angular_velocity.time;
 N = length(t);
 for i=10:N

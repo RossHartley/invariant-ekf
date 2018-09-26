@@ -42,11 +42,14 @@ ostream& operator<<(ostream& os, const Observation& o) {
 // Default constructor
 InEKF::InEKF() {}
 
+// Constructor with noise params
+InEKF::InEKF(NoiseParams params) : noise_params_(params) {}
+
 // Constructor with initial state
 InEKF::InEKF(RobotState state) : state_(state) {}
 
-// Constructor wtih initial state and prior landmarks
-InEKF::InEKF(RobotState state, const mapIntVector3d& prior_landmarks) : state_(state), prior_landmarks_(prior_landmarks) {}
+// Constructor with initial state and noise params
+InEKF::InEKF(RobotState state, NoiseParams params) : state_(state), noise_params_(params) {}
 
 // Return robot's current state
 RobotState InEKF::getState() { 
@@ -114,8 +117,8 @@ std::map<int,bool> InEKF::getContacts() {
 // InEKF Propagation - Inertial Data
 void InEKF::Propagate(const Eigen::Matrix<double,6,1>& m, double dt) {
 
-    Eigen::Vector3d w = m.head(3) - state_.getAngularVelocityBias();    // Angular Velocity
-    Eigen::Vector3d a = m.tail(3) - state_.getLinearAccelerationBias(); // Linear Acceleration
+    Eigen::Vector3d w = m.head(3) - state_.getGyroscopeBias();    // Angular Velocity
+    Eigen::Vector3d a = m.tail(3) - state_.getAccelerometerBias(); // Linear Acceleration
     
     Eigen::MatrixXd X = state_.getX();
     Eigen::MatrixXd P = state_.getP();

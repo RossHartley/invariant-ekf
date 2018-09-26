@@ -24,40 +24,72 @@
 using namespace std;
 using namespace inekf;
 
-int main() 
-{
-    // Initialize robot's state
+int main() {
+    //  ---- Initialize invariant extended Kalman filter ----- //
     RobotState initial_state; 
 
-    // Initialize prior landmarks
-    mapIntVector3d prior_landmarks;
-    Eigen::Vector3d p_wl;
-    int id;
+    // Initialize state mean
+    Eigen::Matrix3d R0;
+    Eigen::Vector3d v0, p0, bg0, ba0;
+    R0 << 1, 0, 0, // initial orientation
+          0, -1, 0, // IMU frame is rotated 90deg about the x-axis
+          0, 0, -1;
+    v0 << 0,0,0; // initial velocity
+    p0 << 0,0,0; // initial position
+    bg0 << 0,0,0; // initial gyroscope bias
+    ba0 << 0,0,0; // initial accelerometer bias
+    initial_state.setRotation(R0);
+    initial_state.setVelocity(v0);
+    initial_state.setPosition(p0);
+    initial_state.setGyroscopeBias(bg0);
+    initial_state.setAccelerometerBias(ba0);
 
-    id = 0;
-    p_wl << 1,2,3;
-    prior_landmarks.insert(pair<int,Eigen::Vector3d> (id, p_wl)); 
+    // Initialize state covariance
+    NoiseParams noise_params;
+    noise_params.setGyroscopeNoise(0.01);
+    noise_params.setAccelerometerNoise(0.1);
+    noise_params.setGyroscopeBiasNoise(0.00001);
+    noise_params.setAccelerometerBiasNoise(0.0001);
+    noise_params.setLandmarkNoise(0.1);
 
-    id = 1;
-    p_wl << 4,5,6;
-    prior_landmarks.insert(pair<int,Eigen::Vector3d> (id, p_wl)); 
-
-    id = 2;
-    p_wl << 7,8,9;
-    prior_landmarks.insert(pair<int,Eigen::Vector3d> (id, p_wl)); 
-    
     // Initialize filter
-    InEKF filter(initial_state, prior_landmarks);
+    InEKF filter(initial_state, noise_params);
+    cout << "Noise parameters are initialized to: \n";
     cout << filter.getNoiseParams() << endl;
     cout << "Robot's state is initialized to: \n";
     cout << filter.getState() << endl;
 
-    ifstream infile("../src/data/landmark_measurements.txt");
+    // --- Optionally initialize prior landmarks --- //
+    mapIntVector3d prior_landmarks;
+    Eigen::Vector3d p_wl;
+    int id;
+
+    // Landmark 1
+    id = 1;
+    p_wl << 1,2,3;
+    prior_landmarks.insert(pair<int,Eigen::Vector3d> (id, p_wl)); 
+
+    // // Landmark 2
+    // id = 2;
+    // p_wl << 4,5,6;
+    // prior_landmarks.insert(pair<int,Eigen::Vector3d> (id, p_wl)); 
+
+    // Landmark 3
+    id = 3;
+    p_wl << 7,8,9;
+    prior_landmarks.insert(pair<int,Eigen::Vector3d> (id, p_wl)); 
+
+    // Store landmarks for localization
+    filter.setPriorLandmarks(prior_landmarks); 
+
+
+    // Open data file
+    ifstream infile("../src/data/imu_landmark_measurements.txt");
     string line;
-    Eigen::Matrix<double,6,1> m, m_last; 
-    double t, t_last;
-    m_last << 0,0,0,0,0,0;
-    t_last = 0;
+    Eigen::Matrix<double,6,1> imu_measurement = Eigen::Matrix<double,6,1>::Zero();
+    Eigen::Matrix<double,6,1> imu_measurement_prev = Eigen::Matrix<double,6,1>::Zero();
+    double t = 0;
+    double t_prev = 0;
 
     // Loop through data file and read in measurements line by line
     while (getline(infile, line)){
@@ -67,22 +99,18 @@ int main()
         if (measurement[0].compare("IMU")==0){
             cout << "Received IMU Data, propagating state\n";
             t = stod(measurement[1]); 
-            m << stod(measurement[2]), 
-                 stod(measurement[3]), 
-                 stod(measurement[4]),
-                 stod(measurement[5]),
-                 stod(measurement[6]),
-                 stod(measurement[7]);
+            imu_measurement << stod(measurement[2]), 
+                               stod(measurement[3]), 
+                               stod(measurement[4]),
+                               stod(measurement[5]),
+                               stod(measurement[6]),
+                               stod(measurement[7]);
 
             // Propagate using IMU data
-            cout << "m:\n" << m << endl;
-            double dt = t - t_last;
-            cout << "dt: " << dt << endl;
+            double dt = t - t_prev;
             if (dt > DT_MIN && dt < DT_MAX) {
-                filter.Propagate(m_last, dt);
-                cout << filter.getState() << endl;
+                filter.Propagate(imu_measurement_prev, dt);
             }
-
         }
         else if (measurement[0].compare("LANDMARK")==0){
             cout << "Received LANDMARK observation, correcting state\n";
@@ -99,14 +127,14 @@ int main()
 
             // Correct state using landmark measurements
             filter.CorrectLandmarks(measured_landmarks);
-            cout << filter.getState() << endl;
-
         }
 
         // Store previous timestamp
-        t_last = t;
-        m_last = m;
+        t_prev = t;
+        imu_measurement_prev = imu_measurement;
     }
 
+    // Print final state
+    cout << filter.getState() << endl;
     return 0;
 }

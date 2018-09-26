@@ -54,8 +54,9 @@ class InEKF {
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         InEKF();
+        InEKF(NoiseParams params);
         InEKF(RobotState state);
-        InEKF(RobotState state, const mapIntVector3d& prior_landmarks);
+        InEKF(RobotState state, NoiseParams params);
 
         RobotState getState();
         NoiseParams getNoiseParams();

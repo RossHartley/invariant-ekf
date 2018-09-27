@@ -66,17 +66,17 @@ int main() {
 
     // Landmark 1
     id = 1;
-    p_wl << 1,2,3;
+    p_wl << 0,-1,0;
     prior_landmarks.insert(pair<int,Eigen::Vector3d> (id, p_wl)); 
 
     // // Landmark 2
     // id = 2;
-    // p_wl << 4,5,6;
+    // p_wl << 1,1,-0.5;
     // prior_landmarks.insert(pair<int,Eigen::Vector3d> (id, p_wl)); 
 
     // Landmark 3
     id = 3;
-    p_wl << 7,8,9;
+    p_wl << 2,-1,0.5;
     prior_landmarks.insert(pair<int,Eigen::Vector3d> (id, p_wl)); 
 
     // Store landmarks for localization
@@ -95,9 +95,10 @@ int main() {
     while (getline(infile, line)){
         vector<string> measurement;
         boost::split(measurement,line,boost::is_any_of(" "));
-        // // Handle measurements
+        // Handle measurements
         if (measurement[0].compare("IMU")==0){
             cout << "Received IMU Data, propagating state\n";
+            assert((measurement.size()-2) == 6);
             t = stod(measurement[1]); 
             imu_measurement << stod(measurement[2]), 
                                stod(measurement[3]), 
@@ -114,6 +115,7 @@ int main() {
         }
         else if (measurement[0].compare("LANDMARK")==0){
             cout << "Received LANDMARK observation, correcting state\n";
+            assert((measurement.size()-2)%4 == 0);
             t = stod(measurement[1]); 
             vectorPairIntVector3d measured_landmarks;
             for (int i=2; i<measurement.size(); i+=4) {

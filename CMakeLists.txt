@@ -37,7 +37,7 @@ include_directories("${PROJECT_SOURCE_DIR}/include/")
 find_package (Threads)
 
 # Boost
-find_package(Boost 1.58 REQUIRED COMPONENTS system)
+find_package(Boost 1.57 REQUIRED COMPONENTS system)
 include_directories(${Boost_INCLUDE_DIR})
 message("Boost_INCLUDE_DIR: " ${Boost_INCLUDE_DIR})
 

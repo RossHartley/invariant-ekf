@@ -22,13 +22,11 @@
 #define DT_MIN 1e-6
 #define DT_MAX 1
 
-#define EIGEN_DONT_VECTORIZE
-#define EIGEN_DISABLE_UNALIGNED_ARRAY_ASSERT
-
 using namespace std;
 using namespace inekf;
 
-typedef vector<pair<double,Eigen::Matrix<double,6,1>>> vectorPairIntVector6d;
+typedef vector<pair<double,Eigen::Matrix<double,6,1> > > vectorPairIntVector6d;
+typedef vector<pair<double,Eigen::Matrix<double,6,1> > >::const_iterator vectorPairIntVector6dIterator;
 
 int main() {
     // Initialize filter
@@ -77,7 +75,7 @@ int main() {
 
     // Propagate all IMU data
     cout << "Propagating " << measurements_vec.size() << " IMU measurements...\n";
-    for (auto it=measurements_vec.begin(); it!=measurements_vec.end(); ++it) {
+    for (vectorPairIntVector6dIterator it=measurements_vec.begin(); it!=measurements_vec.end(); ++it) {
         // Propagate using IMU data
         t = it->first;
         m = it->second;
@@ -95,14 +93,14 @@ int main() {
     cout << "Correcting " << measured_landmarks.size() << " landmark measurements...\n";
     int64_t max_duration = 0;
     int64_t sum_duration = 0;
-    for (auto it=measured_landmarks.begin(); it!=measured_landmarks.end(); ++it) {
+    for (vectorLandmarksIterator it=measured_landmarks.begin(); it!=measured_landmarks.end(); ++it) {
         vectorLandmarks landmarks;
         landmarks.push_back(*it);
         chrono::high_resolution_clock::time_point start_time = chrono::high_resolution_clock::now();
         filter.CorrectLandmarks(landmarks);
         //cout << filter.getState() << endl;
         chrono::high_resolution_clock::time_point end_time = chrono::high_resolution_clock::now();
-        auto duration = chrono::duration_cast<chrono::microseconds>( end_time - start_time ).count();
+        int64_t duration = chrono::duration_cast<chrono::microseconds>( end_time - start_time ).count();
         //cout << "duration: " <<  duration << endl;
         sum_duration += duration;
         if (duration > max_duration)

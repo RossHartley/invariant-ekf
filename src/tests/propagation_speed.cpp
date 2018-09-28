@@ -26,7 +26,8 @@
 using namespace std;
 using namespace inekf;
 
-typedef vector<pair<double,Eigen::Matrix<double,6,1>>> vectorPairIntVector6d;
+typedef vector<pair<double,Eigen::Matrix<double,6,1> > > vectorPairIntVector6d;
+typedef vector<pair<double,Eigen::Matrix<double,6,1> > >::const_iterator vectorPairIntVector6dIterator;
 
 int main() 
 {
@@ -67,7 +68,7 @@ int main()
     cout << "Propagating " << measurements_vec.size() << " IMU measurements...\n";
     int64_t max_duration = 0;
     int64_t sum_duration = 0;
-    for (auto it=measurements_vec.begin(); it!=measurements_vec.end(); ++it) {
+    for (vectorPairIntVector6dIterator it=measurements_vec.begin(); it!=measurements_vec.end(); ++it) {
         // Propagate using IMU data
         t = it->first;
         m = it->second;
@@ -76,7 +77,7 @@ int main()
             chrono::high_resolution_clock::time_point start_time = chrono::high_resolution_clock::now();
             filter.Propagate(m_last, dt);
             chrono::high_resolution_clock::time_point end_time = chrono::high_resolution_clock::now();
-            auto duration = chrono::duration_cast<chrono::microseconds>( end_time - start_time ).count();
+            int64_t duration = chrono::duration_cast<chrono::microseconds>( end_time - start_time ).count();
             //cout << "duration: " <<  duration << endl;
             sum_duration += duration;
             if (duration > max_duration)

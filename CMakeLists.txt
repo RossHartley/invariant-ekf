@@ -3,10 +3,26 @@ cmake_minimum_required(VERSION 2.8.3)
 # Project's name
 project(inekf)
 
+option(USE_CPP11 "Use flag -std=c++11" ON)
+option(USE_MUTEX "Use mutex in code" ON)
+
+if (USE_CPP11 EQUAL OFF AND USE_MUTEX EQUAL ON)
+    message(FATAL_ERROR "You cannot have USE_CPP11 = OFF AND USE_MUTEX = ON")
+endif (USE_CPP11 EQUAL OFF AND USE_MUTEX EQUAL ON)
+
 # Set compiler flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3 -DEIGEN_NO_DEBUG -march=native -Wl,--no-as-needed") 
+if (USE_CPP11)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+endif(USE_CPP11)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -DEIGEN_NO_DEBUG -march=native -Wl,--no-as-needed")
+if (USE_MUTEX)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINEKF_USE_MUTEX=true")
+else (USE_MUTEX)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINEKF_USE_MUTEX=false")
+endif(USE_MUTEX)
 SET(CMAKE_CXX_COMPILER /usr/bin/g++)
 
+message("CMAKE_CXX_FLAGS: " ${CMAKE_CXX_FLAGS})
 
 # Set the output folder where your program will be created  
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
@@ -21,7 +37,7 @@ include_directories("${PROJECT_SOURCE_DIR}/include/")
 find_package (Threads)
 
 # Boost
-find_package(Boost 1.58 REQUIRED COMPONENTS system)
+find_package(Boost 1.57 REQUIRED COMPONENTS system)
 include_directories(${Boost_INCLUDE_DIR})
 message("Boost_INCLUDE_DIR: " ${Boost_INCLUDE_DIR})
 
@@ -47,6 +63,7 @@ add_executable(correction_speed ${PROJECT_SOURCE_DIR}/src/tests/correction_speed
 
 target_link_libraries(landmarks ${Boost_LIBRARIES})
 target_link_libraries(kinematics ${Boost_LIBRARIES})
+target_link_libraries(propagation_speed ${Boost_LIBRARIES})
 target_link_libraries(correction_speed ${Boost_LIBRARIES})
 
 # Create Library

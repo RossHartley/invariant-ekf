@@ -14,12 +14,21 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <cstdlib>
 #include <Eigen/Dense>
 #include <boost/algorithm/string.hpp>
 #include "InEKF.h"
 
 #define DT_MIN 1e-6
 #define DT_MAX 1
+
+double stod(const std::string &s) {
+    return atof(s.c_str());
+}
+
+int stoi(const std::string &s) {
+    return atoi(s.c_str());
+}
 
 using namespace std;
 using namespace inekf;

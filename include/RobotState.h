@@ -15,9 +15,9 @@
 #define ROBOTSTATE_H 
 #include <Eigen/Dense>
 #include <iostream>
-#include <thread>
+#if INEKF_USE_MUTEX
 #include <mutex>
-#include <condition_variable>
+#endif
 
 namespace inekf {
 
@@ -30,10 +30,12 @@ class RobotState {
         RobotState(const Eigen::MatrixXd& X, const Eigen::VectorXd& Theta);
         RobotState(const Eigen::MatrixXd& X, const Eigen::VectorXd& Theta, const Eigen::MatrixXd& P);
         
+#if INEKF_USE_MUTEX
         // RobotState(RobotState&& other); // Move initialization
         RobotState(const RobotState& other); // Copy initialization
         // RobotState& operator=(RobotState&& other); // Move assignment
         RobotState& operator=(const RobotState& other); // Copy assignment
+#endif
 
         const Eigen::MatrixXd getX();
         const Eigen::VectorXd getTheta();
@@ -64,7 +66,9 @@ class RobotState {
         Eigen::MatrixXd X_;
         Eigen::VectorXd Theta_;
         Eigen::MatrixXd P_;
+#if INEKF_USE_MUTEX
         mutable std::mutex mutex_;
+#endif
 
 };
 

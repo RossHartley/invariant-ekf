@@ -18,8 +18,9 @@
 #include <iostream>
 #include <vector>
 #include <map>
-#include <tuple>
+#if INEKF_USE_MUTEX
 #include <mutex>
+#endif
 #include <algorithm>
 #include "RobotState.h"
 #include "NoiseParams.h"
@@ -88,7 +89,7 @@ class InEKF {
         void setState(RobotState state);
         void setNoiseParams(NoiseParams params);
         void setPriorLandmarks(const mapIntVector3d& prior_landmarks);
-        void setContacts(std::vector<std::pair<int,bool>> contacts);
+        void setContacts(std::vector<std::pair<int,bool> > contacts);
 
         void Propagate(const Eigen::Matrix<double,6,1>& m, double dt);
         void Correct(const Observation& obs);
@@ -98,13 +99,15 @@ class InEKF {
     private:
         RobotState state_;
         NoiseParams noise_params_;
-        const Eigen::Vector3d g_ = (Eigen::VectorXd(3) << 0,0,-9.81).finished(); // Gravity
+        const Eigen::Vector3d g_; // Gravity
         mapIntVector3d prior_landmarks_;
         std::map<int,int> estimated_landmarks_;
-        std::mutex estimated_landmarks_mutex_;
         std::map<int,bool> contacts_;
         std::map<int,int> estimated_contact_positions_;
+#if INEKF_USE_MUTEX
         std::mutex estimated_contacts_mutex_;
+        std::mutex estimated_landmarks_mutex_;
+#endif
 };
 
 } // end inekf namespace

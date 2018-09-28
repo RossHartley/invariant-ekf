@@ -13,8 +13,9 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <cstdlib>
 #include <vector>
-#include <chrono>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <Eigen/Dense>
 #include<Eigen/StdVector>
 #include <boost/algorithm/string.hpp>
@@ -25,9 +26,19 @@
 
 using namespace std;
 using namespace inekf;
+using namespace boost::posix_time;
 
 typedef vector<pair<double,Eigen::Matrix<double,6,1> > > vectorPairIntVector6d;
 typedef vector<pair<double,Eigen::Matrix<double,6,1> > >::const_iterator vectorPairIntVector6dIterator;
+
+double stod(const std::string &s) {
+    return atof(s.c_str());
+}
+
+int stoi(const std::string &s) {
+    return atoi(s.c_str());
+}
+
 
 int main() 
 {
@@ -60,7 +71,7 @@ int main()
                  stod(measurement[5]),
                  stod(measurement[6]),
                  stod(measurement[7]);
-            measurements_vec.push_back(pair<double,Eigen::Matrix<double,6,1>> (t, m)); 
+            measurements_vec.push_back(pair<double,Eigen::Matrix<double,6,1> > (t, m)); 
         }
     }
 
@@ -74,10 +85,10 @@ int main()
         m = it->second;
         double dt = t - t_last;
         if (dt > DT_MIN && dt < DT_MAX) {
-            chrono::high_resolution_clock::time_point start_time = chrono::high_resolution_clock::now();
+            ptime start_time = second_clock::local_time();
             filter.Propagate(m_last, dt);
-            chrono::high_resolution_clock::time_point end_time = chrono::high_resolution_clock::now();
-            int64_t duration = chrono::duration_cast<chrono::microseconds>( end_time - start_time ).count();
+            ptime end_time = second_clock::local_time();
+            int64_t duration = (end_time - start_time).total_nanoseconds();
             //cout << "duration: " <<  duration << endl;
             sum_duration += duration;
             if (duration > max_duration)

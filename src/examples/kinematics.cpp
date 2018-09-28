@@ -14,10 +14,10 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <cstdlib>
 #include <Eigen/Dense>
 #include <boost/algorithm/string.hpp>
 #include <vector>
-#include <tuple>
 #include "InEKF.h"
 
 #define DT_MIN 1e-6
@@ -25,6 +25,14 @@
 
 using namespace std;
 using namespace inekf;
+
+double stod(const std::string &s) {
+    return atof(s.c_str());
+}
+
+int stoi(const std::string &s) {
+    return atoi(s.c_str());
+}
 
 int main() {
     //  ---- Initialize invariant extended Kalman filter ----- //
@@ -77,7 +85,7 @@ int main() {
         if (measurement[0].compare("IMU")==0){
             cout << "Received IMU Data, propagating state\n";
             assert((measurement.size()-2) == 6);
-            t = stod(measurement[1]); 
+            t = atof(measurement[1].c_str()); 
             // Read in IMU data
             imu_measurement << stod(measurement[2]), 
                                stod(measurement[3]), 
@@ -96,7 +104,7 @@ int main() {
         else if (measurement[0].compare("CONTACT")==0){
             cout << "Received CONTACT Data, setting filter's contact state\n";
             assert((measurement.size()-2)%2 == 0);
-            vector<pair<int,bool>> contacts;
+            vector<pair<int,bool> > contacts;
             int id;
             bool indicator;
             t = stod(measurement[1]); 

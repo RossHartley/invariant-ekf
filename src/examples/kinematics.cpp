@@ -1,5 +1,5 @@
 /* ----------------------------------------------------------------------------
- * Copyright 2018, Ross Hartley
+ * Copyright 2018, Ross Hartley <m.ross.hartley@gmail.com>
  * All Rights Reserved
  * See LICENSE for the license information
  * -------------------------------------------------------------------------- */

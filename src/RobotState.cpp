@@ -1,13 +1,13 @@
 /* ----------------------------------------------------------------------------
- * Copyright 2018, Ross Hartley
- * All Rights Reserved
+ * Copyright 2018, Ross Hartley <m.ross.hartley@gmail.com>
+ * All Rights Reserved 
  * See LICENSE for the license information
  * -------------------------------------------------------------------------- */
 
 /**
  *  @file   RobotState.h
  *  @author Ross Hartley
- *  @brief  Source file for RobotState
+ *  @brief  Source file for RobotState (thread-safe)
  *  @date   September 25, 2018
  **/
 

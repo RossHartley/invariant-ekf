@@ -1,5 +1,5 @@
 /* ----------------------------------------------------------------------------
- * Copyright 2018, Ross Hartley
+ * Copyright 2018, Ross Hartley <m.ross.hartley@gmail.com>
  * All Rights Reserved
  * See LICENSE for the license information
  * -------------------------------------------------------------------------- */
@@ -369,6 +369,7 @@ void InEKF::CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks) {
     return;    
 }
 
+// Correct state using kinematics measured between imu and contact point
 void InEKF::CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kinematics) {
     lock_guard<mutex> mlock(estimated_contacts_mutex_);
     Eigen::VectorXd Y;

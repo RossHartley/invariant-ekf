@@ -1,5 +1,5 @@
 /* ----------------------------------------------------------------------------
- * Copyright 2018, Ross Hartley
+ * Copyright 2018, Ross Hartley <m.ross.hartley@gmail.com>
  * All Rights Reserved
  * See LICENSE for the license information
  * -------------------------------------------------------------------------- */
@@ -40,16 +40,16 @@ ostream& operator<<(ostream& os, const Observation& o) {
 
 // ------------ InEKF -------------
 // Default constructor
-InEKF::InEKF() {}
+InEKF::InEKF() : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()){}
 
 // Constructor with noise params
-InEKF::InEKF(NoiseParams params) : noise_params_(params) {}
+InEKF::InEKF(NoiseParams params) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), noise_params_(params) {}
 
 // Constructor with initial state
-InEKF::InEKF(RobotState state) : state_(state) {}
+InEKF::InEKF(RobotState state) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), state_(state) {}
 
 // Constructor with initial state and noise params
-InEKF::InEKF(RobotState state, NoiseParams params) : state_(state), noise_params_(params) {}
+InEKF::InEKF(RobotState state, NoiseParams params) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), state_(state), noise_params_(params) {}
 
 // Return robot's current state
 RobotState InEKF::getState() { 
@@ -98,13 +98,13 @@ map<int,int> InEKF::getEstimatedContactPositions() {
 }
 
 // Set the filter's contact state
-void InEKF::setContacts(std::vector<std::pair<int,bool>> contacts) {
+void InEKF::setContacts(vector<pair<int,bool> > contacts) {
 #if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_contacts_mutex_);
 #endif
     // Insert new measured contact states
-    for (auto it=contacts.begin(); it!=contacts.end(); ++it) {
-        auto ret = contacts_.insert(*it);
+    for (vector<pair<int,bool> >::iterator it=contacts.begin(); it!=contacts.end(); ++it) {
+        pair<map<int,bool>::iterator,bool> ret = contacts_.insert(*it);
         // If contact is already in the map, replace with new value
         if (ret.second==false) {
             ret.first->second = it->second;
@@ -166,7 +166,7 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& m, double dt) {
     Eigen::MatrixXd Qk = Eigen::MatrixXd::Zero(dimP,dimP); // Landmark noise terms will remain zero
     Qk.block<3,3>(0,0) = noise_params_.getGyroscopeCov(); 
     Qk.block<3,3>(3,3) = noise_params_.getAccelerometerCov();
-    for(auto it=estimated_contact_positions_.begin(); it!=estimated_contact_positions_.end(); ++it) {
+    for(map<int,int>::iterator it=estimated_contact_positions_.begin(); it!=estimated_contact_positions_.end(); ++it) {
         Qk.block<3,3>(3+3*(it->second-3),3+3*(it->second-3)) = noise_params_.getContactCov(); // Contact noise terms
     }
     Qk.block<3,3>(dimP-dimTheta,dimP-dimTheta) = noise_params_.getGyroscopeBiasCov();
@@ -221,7 +221,7 @@ void InEKF::Correct(const Observation& obs) {
 }   
 
 // Create Observation from vector of landmark measurements
-void InEKF::CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks) {
+void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
 #if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_landmarks_mutex_);
 #endif
@@ -232,19 +232,19 @@ void InEKF::CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks) {
     Eigen::MatrixXd PI;
 
     Eigen::Matrix3d R = state_.getRotation();
-    vectorPairIntVector3d new_landmarks;
+    vectorLandmarks new_landmarks;
     vector<int> used_landmark_ids;
     
-    for (auto it=measured_landmarks.begin(); it!=measured_landmarks.end(); ++it) {
+    for (vectorLandmarksIterator it=measured_landmarks.begin(); it!=measured_landmarks.end(); ++it) {
         // Detect and skip if an ID is not unique (this would cause singularity issues in InEKF::Correct)
-        if (find(used_landmark_ids.begin(), used_landmark_ids.end(), it->first) != used_landmark_ids.end()) { 
+        if (find(used_landmark_ids.begin(), used_landmark_ids.end(), it->id) != used_landmark_ids.end()) { 
             cout << "Duplicate landmark ID detected! Skipping measurement.\n";
             continue; 
-        } else { used_landmark_ids.push_back(it->first); }
+        } else { used_landmark_ids.push_back(it->id); }
 
         // See if we can find id in prior_landmarks or estimated_landmarks
-        auto it_prior = prior_landmarks_.find(it->first);
-        auto it_estimated = estimated_landmarks_.find(it->first);
+        mapIntVector3dIterator it_prior = prior_landmarks_.find(it->id);
+        map<int,int>::iterator it_estimated = estimated_landmarks_.find(it->id);
         if (it_prior!=prior_landmarks_.end()) {
             // Found in prior landmark set
             int dimX = state_.dimX();
@@ -255,7 +255,7 @@ void InEKF::CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks) {
             startIndex = Y.rows();
             Y.conservativeResize(startIndex+dimX, Eigen::NoChange);
             Y.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
-            Y.segment(startIndex,3) = it->second; // p_bl
+            Y.segment(startIndex,3) = it->position; // p_bl
             Y(startIndex+4) = 1; 
 
             // Fill out b
@@ -298,7 +298,7 @@ void InEKF::CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks) {
             startIndex = Y.rows();
             Y.conservativeResize(startIndex+dimX, Eigen::NoChange);
             Y.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
-            Y.segment(startIndex,3) = it->second; // p_bl
+            Y.segment(startIndex,3) = it->position; // p_bl
             Y(startIndex+4) = 1; 
             Y(startIndex+it_estimated->second) = -1;       
 
@@ -350,14 +350,14 @@ void InEKF::CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks) {
         Eigen::MatrixXd X_aug = state_.getX(); 
         Eigen::MatrixXd P_aug = state_.getP();
         Eigen::Vector3d p = state_.getPosition();
-        for (auto it=new_landmarks.begin(); it!=new_landmarks.end(); ++it) {
+        for (vectorLandmarksIterator it=new_landmarks.begin(); it!=new_landmarks.end(); ++it) {
             // Initialize new landmark mean
             int startIndex = X_aug.rows();
             X_aug.conservativeResize(startIndex+1, startIndex+1);
             X_aug.block(startIndex,0,1,startIndex) = Eigen::MatrixXd::Zero(1,startIndex);
             X_aug.block(0,startIndex,startIndex,1) = Eigen::MatrixXd::Zero(startIndex,1);
             X_aug(startIndex, startIndex) = 1;
-            X_aug.block(0,startIndex,3,1) = p + R*it->second;
+            X_aug.block(0,startIndex,3,1) = p + R*it->position;
 
             // Initialize new landmark covariance - TODO:speed up
             Eigen::MatrixXd F = Eigen::MatrixXd::Zero(state_.dimP()+3,state_.dimP()); 
@@ -373,13 +373,14 @@ void InEKF::CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks) {
             state_.setP(P_aug);
 
             // Add to list of estimated landmarks
-            estimated_landmarks_.insert(pair<int,int> (it->first, startIndex));
+            estimated_landmarks_.insert(pair<int,int> (it->id, startIndex));
         }
     }
     return;    
 }
 
-void InEKF::CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kinematics) {
+// Correct state using kinematics measured between imu and contact point
+void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
 #if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_contacts_mutex_);
 #endif
@@ -390,24 +391,24 @@ void InEKF::CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kin
     Eigen::MatrixXd PI;
 
     Eigen::Matrix3d R = state_.getRotation();
-    vector<pair<int,int>> remove_contacts;
-    vectorTupleIntMatrix4dMatrix6d new_contacts;
+    vector<pair<int,int> > remove_contacts;
+    vectorKinematics new_contacts;
     vector<int> used_contact_ids;
 
-   for (auto it=measured_kinematics.begin(); it!=measured_kinematics.end(); ++it) {
+   for (vectorKinematicsIterator it=measured_kinematics.begin(); it!=measured_kinematics.end(); ++it) {
         // Detect and skip if an ID is not unique (this would cause singularity issues in InEKF::Correct)
-        if (find(used_contact_ids.begin(), used_contact_ids.end(), get<0>(*it)) != used_contact_ids.end()) { 
+        if (find(used_contact_ids.begin(), used_contact_ids.end(), it->id) != used_contact_ids.end()) { 
             cout << "Duplicate contact ID detected! Skipping measurement.\n";
             continue; 
-        } else { used_contact_ids.push_back(get<0>(*it)); }
+        } else { used_contact_ids.push_back(it->id); }
 
         // Find contact indicator for the kinematics measurement
-        auto it_contact = contacts_.find(get<0>(*it));
+        map<int,bool>::iterator it_contact = contacts_.find(it->id);
         if (it_contact == contacts_.end()) { continue; } // Skip if contact state is unknown
         bool contact_indicated = it_contact->second;
 
         // See if we can find id estimated_contact_positions
-        auto it_estimated = estimated_contact_positions_.find(get<0>(*it));
+        map<int,int>::iterator it_estimated = estimated_contact_positions_.find(it->id);
         bool found = it_estimated!=estimated_contact_positions_.end();
 
         // If contact is not indicated and id is found in estimated_contacts_, then remove state
@@ -427,8 +428,7 @@ void InEKF::CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kin
             startIndex = Y.rows();
             Y.conservativeResize(startIndex+dimX, Eigen::NoChange);
             Y.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
-            Eigen::Matrix4d H_bc = get<1>(*it);
-            Y.segment(startIndex,3) = H_bc.block<3,1>(0,3); // p_bc
+            Y.segment(startIndex,3) = it->pose.block<3,1>(0,3); // p_bc
             Y(startIndex+4) = 1; 
             Y(startIndex+it_estimated->second) = -1;       
 
@@ -451,8 +451,7 @@ void InEKF::CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kin
             N.conservativeResize(startIndex+3, startIndex+3);
             N.block(startIndex,0,3,startIndex) = Eigen::MatrixXd::Zero(3,startIndex);
             N.block(0,startIndex,startIndex,3) = Eigen::MatrixXd::Zero(startIndex,3);
-            Eigen::Matrix<double,6,6> J_bc = get<2>(*it);
-            N.block(startIndex,startIndex,3,3) = R * J_bc.block<3,3>(3,3) * R.transpose();
+            N.block(startIndex,startIndex,3,3) = R * it->covariance.block<3,3>(3,3) * R.transpose();
 
             // Fill out PI      
             startIndex = PI.rows();
@@ -479,7 +478,7 @@ void InEKF::CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kin
     if (remove_contacts.size() > 0) {
         Eigen::MatrixXd X_rem = state_.getX(); 
         Eigen::MatrixXd P_rem = state_.getP();
-        for (auto it=remove_contacts.begin(); it!=remove_contacts.end(); ++it) {
+        for (vector<pair<int,int> >::iterator it=remove_contacts.begin(); it!=remove_contacts.end(); ++it) {
             // Remove from list of estimated contact positions
             estimated_contact_positions_.erase(it->first);
 
@@ -493,16 +492,16 @@ void InEKF::CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kin
             removeRowAndColumn(P_rem, startIndex); // TODO: Make more efficient
 
             // Update all indices for estimated_landmarks and estimated_contact_positions
-            for (auto it2=estimated_landmarks_.begin(); it2!=estimated_landmarks_.end(); ++it2) {
+            for (map<int,int>::iterator it2=estimated_landmarks_.begin(); it2!=estimated_landmarks_.end(); ++it2) {
                 if (it2->second > it->second) 
                     it2->second -= 1;
             }
-            for (auto it2=estimated_contact_positions_.begin(); it2!=estimated_contact_positions_.end(); ++it2) {
+            for (map<int,int>::iterator it2=estimated_contact_positions_.begin(); it2!=estimated_contact_positions_.end(); ++it2) {
                 if (it2->second > it->second) 
                     it2->second -= 1;
             }
             // We also need to update the indices of remove_contacts in the case where multiple contacts are being removed at once
-            for (auto it2=it; it2!=remove_contacts.end(); ++it2) {
+            for (vector<pair<int,int> >::iterator it2=it; it2!=remove_contacts.end(); ++it2) {
                 if (it2->second > it->second) 
                     it2->second -= 1;
             }
@@ -519,15 +518,14 @@ void InEKF::CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kin
         Eigen::MatrixXd X_aug = state_.getX(); 
         Eigen::MatrixXd P_aug = state_.getP();
         Eigen::Vector3d p = state_.getPosition();
-        for (auto it=new_contacts.begin(); it!=new_contacts.end(); ++it) {
+        for (vectorKinematicsIterator it=new_contacts.begin(); it!=new_contacts.end(); ++it) {
             // Initialize new landmark mean
             int startIndex = X_aug.rows();
             X_aug.conservativeResize(startIndex+1, startIndex+1);
             X_aug.block(startIndex,0,1,startIndex) = Eigen::MatrixXd::Zero(1,startIndex);
             X_aug.block(0,startIndex,startIndex,1) = Eigen::MatrixXd::Zero(startIndex,1);
             X_aug(startIndex, startIndex) = 1;
-            Eigen::Matrix4d H = get<1>(*it);
-            X_aug.block(0,startIndex,3,1) = p + R*H.block<3,1>(0,3);
+            X_aug.block(0,startIndex,3,1) = p + R*it->pose.block<3,1>(0,3);
 
             // Initialize new landmark covariance - TODO:speed up
             Eigen::MatrixXd F = Eigen::MatrixXd::Zero(state_.dimP()+3,state_.dimP()); 
@@ -536,15 +534,14 @@ void InEKF::CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kin
             F.block(state_.dimP()-state_.dimTheta()+3,state_.dimP()-state_.dimTheta(),state_.dimTheta(),state_.dimTheta()) = Eigen::MatrixXd::Identity(state_.dimTheta(),state_.dimTheta()); // for theta
             Eigen::MatrixXd G = Eigen::MatrixXd::Zero(F.rows(),3);
             G.block(G.rows()-state_.dimTheta()-3,0,3,3) = R;
-            Eigen::Matrix<double,6,6> J_bc = get<2>(*it);
-            P_aug = (F*P_aug*F.transpose() + G*J_bc.block<3,3>(3,3)*G.transpose()).eval();
+            P_aug = (F*P_aug*F.transpose() + G*it->covariance.block<3,3>(3,3)*G.transpose()).eval();
 
             // Update state and covariance
             state_.setX(X_aug);
             state_.setP(P_aug);
 
             // Add to list of estimated contact positions
-            estimated_contact_positions_.insert(pair<int,int> (get<0>(*it), startIndex));
+            estimated_contact_positions_.insert(pair<int,int> (it->id, startIndex));
         }
     }
 

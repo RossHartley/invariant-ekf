@@ -43,7 +43,7 @@ int main() {
     m_last << 0,0,0,0,0,0;
     t_last = 0;
     vectorPairIntVector6d measurements_vec;
-    vectorPairIntVector3d measured_landmarks;
+    vectorLandmarks measured_landmarks;
 
     // Loop through data file and read in measurements line by line
     while (getline(infile, line)){
@@ -64,12 +64,13 @@ int main() {
         else if (measurement[0].compare("LANDMARK")==0){
             t = stod(measurement[1]); 
             for (int i=2; i<measurement.size(); i+=4) {
-                int landmark_id = stod(measurement[i]);
+                int id = stod(measurement[i]);
                 Eigen::Vector3d p_bl;
                 p_bl << stod(measurement[i+1]), 
                         stod(measurement[i+2]), 
                         stod(measurement[i+3]);
-                measured_landmarks.push_back(pair<int,Eigen::Vector3d> (landmark_id, p_bl)); 
+                Landmark landmark(id, p_bl);
+                measured_landmarks.push_back(landmark); 
             }
         }
     }
@@ -95,7 +96,7 @@ int main() {
     int64_t max_duration = 0;
     int64_t sum_duration = 0;
     for (auto it=measured_landmarks.begin(); it!=measured_landmarks.end(); ++it) {
-        vectorPairIntVector3d landmarks;
+        vectorLandmarks landmarks;
         landmarks.push_back(*it);
         chrono::high_resolution_clock::time_point start_time = chrono::high_resolution_clock::now();
         filter.CorrectLandmarks(landmarks);

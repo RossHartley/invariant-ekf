@@ -115,9 +115,9 @@ int main() {
             int id;
             Eigen::Quaternion<double> q;
             Eigen::Vector3d p;
-            Eigen::Matrix4d H = Eigen::Matrix4d::Identity();
-            Eigen::Matrix<double,6,6> Cov;
-            vectorTupleIntMatrix4dMatrix6d measured_kinematics;
+            Eigen::Matrix4d pose = Eigen::Matrix4d::Identity();
+            Eigen::Matrix<double,6,6> covariance;
+            vectorKinematics measured_kinematics;
             t = stod(measurement[1]); 
             // Read in kinematic data
             for (int i=2; i<measurement.size(); i+=44) {
@@ -125,14 +125,15 @@ int main() {
                 q = Eigen::Quaternion<double> (stod(measurement[i+1]),stod(measurement[i+2]),stod(measurement[i+3]),stod(measurement[i+4]));
                 q.normalize();
                 p << stod(measurement[i+5]),stod(measurement[i+6]),stod(measurement[i+7]);
-                H.block<3,3>(0,0) = q.toRotationMatrix();
-                H.block<3,1>(0,3) = p;
+                pose.block<3,3>(0,0) = q.toRotationMatrix();
+                pose.block<3,1>(0,3) = p;
                 for (int j=0; j<6; ++j) {
                     for (int k=0; k<6; ++k) {
-                        Cov(j,k) = stod(measurement[i+8 + j*6+k]);
+                        covariance(j,k) = stod(measurement[i+8 + j*6+k]);
                     }
                 }
-                measured_kinematics.push_back(tuple<int,Eigen::Matrix4d,Eigen::Matrix<double,6,6>> (id, H, Cov));
+                Kinematics frame(id, pose, covariance);
+                measured_kinematics.push_back(frame);
             }
             // Correct state using kinematic measurements
             filter.CorrectKinematics(measured_kinematics);

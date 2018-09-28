@@ -117,14 +117,15 @@ int main() {
             cout << "Received LANDMARK observation, correcting state\n";
             assert((measurement.size()-2)%4 == 0);
             t = stod(measurement[1]); 
-            vectorPairIntVector3d measured_landmarks;
+            vectorLandmarks measured_landmarks;
             for (int i=2; i<measurement.size(); i+=4) {
-                int landmark_id = stod(measurement[i]);
+                int id = stod(measurement[i]);
                 Eigen::Vector3d p_bl;
                 p_bl << stod(measurement[i+1]), 
                         stod(measurement[i+2]), 
                         stod(measurement[i+3]);
-                measured_landmarks.push_back(pair<int,Eigen::Vector3d> (landmark_id, p_bl)); 
+                Landmark landmark(id, p_bl);
+                measured_landmarks.push_back(landmark); 
             }
 
             // Correct state using landmark measurements

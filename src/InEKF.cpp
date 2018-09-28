@@ -83,19 +83,25 @@ void InEKF::setPriorLandmarks(const mapIntVector3d& prior_landmarks) {
 
 // Return filter's estimated landmarks
 map<int,int> InEKF::getEstimatedLandmarks() { 
+#if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_landmarks_mutex_);
+#endif
     return estimated_landmarks_; 
 }
 
 // Return filter's estimated landmarks
 map<int,int> InEKF::getEstimatedContactPositions() { 
+#if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_contacts_mutex_);
+#endif
     return estimated_contact_positions_; 
 }
 
 // Set the filter's contact state
 void InEKF::setContacts(std::vector<std::pair<int,bool>> contacts) {
+#if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_contacts_mutex_);
+#endif
     // Insert new measured contact states
     for (auto it=contacts.begin(); it!=contacts.end(); ++it) {
         auto ret = contacts_.insert(*it);
@@ -109,7 +115,9 @@ void InEKF::setContacts(std::vector<std::pair<int,bool>> contacts) {
 
 // Return the filter's contact state
 std::map<int,bool> InEKF::getContacts() {
+#if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_contacts_mutex_);
+#endif
     return contacts_; 
 }
 
@@ -214,7 +222,9 @@ void InEKF::Correct(const Observation& obs) {
 
 // Create Observation from vector of landmark measurements
 void InEKF::CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks) {
+#if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_landmarks_mutex_);
+#endif
     Eigen::VectorXd Y;
     Eigen::VectorXd b;
     Eigen::MatrixXd H;
@@ -370,7 +380,9 @@ void InEKF::CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks) {
 }
 
 void InEKF::CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kinematics) {
+#if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_contacts_mutex_);
+#endif
     Eigen::VectorXd Y;
     Eigen::VectorXd b;
     Eigen::MatrixXd H;

@@ -19,7 +19,9 @@
 #include <vector>
 #include <map>
 #include <tuple>
+#if INEKF_USE_MUTEX
 #include <mutex>
+#endif
 #include <algorithm>
 #include "RobotState.h"
 #include "NoiseParams.h"
@@ -82,10 +84,12 @@ class InEKF {
         const Eigen::Vector3d g_ = (Eigen::VectorXd(3) << 0,0,-9.81).finished(); // Gravity
         mapIntVector3d prior_landmarks_;
         std::map<int,int> estimated_landmarks_;
-        std::mutex estimated_landmarks_mutex_;
         std::map<int,bool> contacts_;
         std::map<int,int> estimated_contact_positions_;
+#if INEKF_USE_MUTEX
         std::mutex estimated_contacts_mutex_;
+        std::mutex estimated_landmarks_mutex_;
+#endif
 };
 
 } // end inekf namespace

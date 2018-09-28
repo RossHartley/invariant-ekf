@@ -34,6 +34,9 @@ int main()
     Eigen::MatrixXd X = Eigen::MatrixXd::Identity(10,10);
     RobotState state(X);
     InEKF filter(state);
+#if INEKF_USE_MUTEX
+    cout << "USING MUTEX" << endl;
+#endif
 
     cout << "Robot's state is initialized to: \n";
     cout << filter.getState() << endl;

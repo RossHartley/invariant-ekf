@@ -14,7 +14,6 @@
 #ifndef INEKF_H
 #define INEKF_H 
 #include <Eigen/Dense>
-#include <Eigen/StdVector>
 #include <iostream>
 #include <vector>
 #include <map>
@@ -31,7 +30,7 @@ namespace inekf {
 class Kinematics {
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-        Kinematics(int id, Eigen::Matrix4d pose, Eigen::Matrix<double,6,6> covariance) : id(id), pose(pose), covariance(covariance) { }
+        Kinematics(int id_in, Eigen::Matrix4d pose_in, Eigen::Matrix<double,6,6> covariance_in) : id(id_in), pose(pose_in), covariance(covariance_in) { }
 
         int id;
         Eigen::Matrix4d pose;
@@ -41,7 +40,7 @@ class Kinematics {
 class Landmark {
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-        Landmark(int id, Eigen::Vector3d position) : id(id), position(position) { }
+        Landmark(int id_in, Eigen::Vector3d position_in) : id(id_in), position(position_in) { }
 
         int id;
         Eigen::Vector3d position;

@@ -4,11 +4,15 @@ cmake_minimum_required(VERSION 2.8.3)
 project(inekf)
 
 option(USE_CPP11 "Use flag -std=c++11" ON)
-option(USE_MUTEX "Use mutex in code" ON)
+option(USE_MUTEX "Use mutex in code" OFF)
 
-if (USE_CPP11 EQUAL OFF AND USE_MUTEX EQUAL ON)
+message("USE_CPP11: " ${USE_CPP11})
+message("USE_MUTEX: " ${USE_MUTEX})
+
+if (USE_MUTEX AND NOT USE_CPP11)
+message("test")
     message(FATAL_ERROR "You cannot have USE_CPP11 = OFF AND USE_MUTEX = ON")
-endif (USE_CPP11 EQUAL OFF AND USE_MUTEX EQUAL ON)
+endif (USE_MUTEX AND NOT USE_CPP11)
 
 # Set compiler flags
 if (USE_CPP11)
@@ -23,6 +27,8 @@ endif(USE_MUTEX)
 SET(CMAKE_CXX_COMPILER /usr/bin/g++)
 
 message("CMAKE_CXX_FLAGS: " ${CMAKE_CXX_FLAGS})
+unset(USE_CPP11)
+unset(USE_MUTEX)
 
 # Set the output folder where your program will be created  
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)

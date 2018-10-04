@@ -26,11 +26,11 @@
 using namespace std;
 using namespace inekf;
 
-double stod(const std::string &s) {
+double stod98(const std::string &s) {
     return atof(s.c_str());
 }
 
-int stoi(const std::string &s) {
+int stoi98(const std::string &s) {
     return atoi(s.c_str());
 }
 
@@ -87,12 +87,12 @@ int main() {
             assert((measurement.size()-2) == 6);
             t = atof(measurement[1].c_str()); 
             // Read in IMU data
-            imu_measurement << stod(measurement[2]), 
-                               stod(measurement[3]), 
-                               stod(measurement[4]),
-                               stod(measurement[5]),
-                               stod(measurement[6]),
-                               stod(measurement[7]);
+            imu_measurement << stod98(measurement[2]), 
+                               stod98(measurement[3]), 
+                               stod98(measurement[4]),
+                               stod98(measurement[5]),
+                               stod98(measurement[6]),
+                               stod98(measurement[7]);
 
             // Propagate using IMU data
             double dt = t - t_prev;
@@ -107,11 +107,11 @@ int main() {
             vector<pair<int,bool> > contacts;
             int id;
             bool indicator;
-            t = stod(measurement[1]); 
+            t = stod98(measurement[1]); 
             // Read in contact data
             for (int i=2; i<measurement.size(); i+=2) {
-                id = stoi(measurement[i]);
-                indicator = bool(stod(measurement[i+1]));
+                id = stoi98(measurement[i]);
+                indicator = bool(stod98(measurement[i+1]));
                 contacts.push_back(pair<int,bool> (id, indicator));
             }       
             // Set filter's contact state
@@ -126,18 +126,18 @@ int main() {
             Eigen::Matrix4d pose = Eigen::Matrix4d::Identity();
             Eigen::Matrix<double,6,6> covariance;
             vectorKinematics measured_kinematics;
-            t = stod(measurement[1]); 
+            t = stod98(measurement[1]); 
             // Read in kinematic data
             for (int i=2; i<measurement.size(); i+=44) {
-                id = stoi(measurement[i]); 
-                q = Eigen::Quaternion<double> (stod(measurement[i+1]),stod(measurement[i+2]),stod(measurement[i+3]),stod(measurement[i+4]));
+                id = stoi98(measurement[i]); 
+                q = Eigen::Quaternion<double> (stod98(measurement[i+1]),stod98(measurement[i+2]),stod98(measurement[i+3]),stod98(measurement[i+4]));
                 q.normalize();
-                p << stod(measurement[i+5]),stod(measurement[i+6]),stod(measurement[i+7]);
+                p << stod98(measurement[i+5]),stod98(measurement[i+6]),stod98(measurement[i+7]);
                 pose.block<3,3>(0,0) = q.toRotationMatrix();
                 pose.block<3,1>(0,3) = p;
                 for (int j=0; j<6; ++j) {
                     for (int k=0; k<6; ++k) {
-                        covariance(j,k) = stod(measurement[i+8 + j*6+k]);
+                        covariance(j,k) = stod98(measurement[i+8 + j*6+k]);
                     }
                 }
                 Kinematics frame(id, pose, covariance);

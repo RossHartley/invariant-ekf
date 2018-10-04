@@ -30,11 +30,11 @@ using namespace boost::posix_time;
 typedef vector<pair<double,Eigen::Matrix<double,6,1> > > vectorPairIntVector6d;
 typedef vector<pair<double,Eigen::Matrix<double,6,1> > >::const_iterator vectorPairIntVector6dIterator;
 
-double stod(const std::string &s) {
+double stod98(const std::string &s) {
     return atof(s.c_str());
 }
 
-int stoi(const std::string &s) {
+int stoi98(const std::string &s) {
     return atoi(s.c_str());
 }
 
@@ -60,24 +60,24 @@ int main() {
         boost::split(measurement,line,boost::is_any_of(" "));
         // Handle measurements
         if (measurement[0].compare("IMU")==0){
-            t = stod(measurement[1]); 
-            m << stod(measurement[2]), 
-                 stod(measurement[3]), 
-                 stod(measurement[4]),
-                 stod(measurement[5]),
-                 stod(measurement[6]),
-                 stod(measurement[7]);
+            t = stod98(measurement[1]); 
+            m << stod98(measurement[2]), 
+                 stod98(measurement[3]), 
+                 stod98(measurement[4]),
+                 stod98(measurement[5]),
+                 stod98(measurement[6]),
+                 stod98(measurement[7]);
             measurements_vec.push_back(pair<double,Eigen::Matrix<double,6,1> > (t, m));
 
         }
         else if (measurement[0].compare("LANDMARK")==0){
-            t = stod(measurement[1]); 
+            t = stod98(measurement[1]); 
             for (int i=2; i<measurement.size(); i+=4) {
-                int id = stod(measurement[i]);
+                int id = stod98(measurement[i]);
                 Eigen::Vector3d p_bl;
-                p_bl << stod(measurement[i+1]), 
-                        stod(measurement[i+2]), 
-                        stod(measurement[i+3]);
+                p_bl << stod98(measurement[i+1]), 
+                        stod98(measurement[i+2]), 
+                        stod98(measurement[i+3]);
                 Landmark landmark(id, p_bl);
                 measured_landmarks.push_back(landmark); 
             }

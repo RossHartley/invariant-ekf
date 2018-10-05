@@ -18,7 +18,7 @@
 
 namespace inekf {
 
-#define TOLERANCE 1e-10 
+extern const double TOLERANCE;
 
 Eigen::Matrix3d skew(const Eigen::Vector3d& v);
 Eigen::Matrix3d Exp_SO3(const Eigen::Vector3d& w);

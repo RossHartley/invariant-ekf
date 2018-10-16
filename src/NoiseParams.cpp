@@ -68,6 +68,7 @@ std::ostream& operator<<(std::ostream& os, const NoiseParams& p) {
     os << "Landmark Covariance:\n" << p.Ql_ << endl;
     os << "Contact Covariance:\n" << p.Qc_ << endl;
     os << "-----------------------------------" << endl;
+    return os;
 }
 
 } // end inekf namespace

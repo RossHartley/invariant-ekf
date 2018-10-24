@@ -124,6 +124,38 @@ const Eigen::Vector3d RobotState::getAccelerometerBias() const {
 #endif
     return Theta_.tail(3); 
 }
+
+const Eigen::Matrix3d RobotState::getRotationCovariance() const { 
+#if INEKF_USE_MUTEX
+    unique_lock<mutex> mlock(mutex_);
+#endif
+    return P_.block<3,3>(0,0); 
+}
+const Eigen::Matrix3d RobotState::getVelocityCovariance() const { 
+#if INEKF_USE_MUTEX
+    unique_lock<mutex> mlock(mutex_);
+#endif
+    return P_.block<3,3>(3,3); 
+}
+const Eigen::Matrix3d RobotState::getPositionCovariance() const { 
+#if INEKF_USE_MUTEX
+    unique_lock<mutex> mlock(mutex_);
+#endif
+    return P_.block<3,3>(6,6); 
+}
+const Eigen::Matrix3d RobotState::getGyroscopeBiasCovariance() const { 
+#if INEKF_USE_MUTEX
+    unique_lock<mutex> mlock(mutex_);
+#endif
+    return P_.block<3,3>(P_.rows()-6,P_.rows()-6); 
+}
+const Eigen::Matrix3d RobotState::getAccelerometerBiasCovariance() const { 
+#if INEKF_USE_MUTEX
+    unique_lock<mutex> mlock(mutex_);
+#endif
+    return P_.block<3,3>(P_.rows()-3,P_.rows()-3); 
+}
+
 const int RobotState::dimX() const { 
 #if INEKF_USE_MUTEX
     unique_lock<mutex> mlock(mutex_);
@@ -191,8 +223,6 @@ void RobotState::setAccelerometerBias(const Eigen::Vector3d& ba) {
 #endif
     Theta_.tail(3) = ba; 
 }
-
-
 void RobotState::setRotationCovariance(const Eigen::Matrix3d& cov) { 
 #if INEKF_USE_MUTEX
     unique_lock<mutex> mlock(mutex_);

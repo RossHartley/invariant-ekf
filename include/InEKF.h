@@ -79,6 +79,7 @@ class InEKF {
         InEKF(RobotState state);
         InEKF(RobotState state, NoiseParams params);
 
+        void clear();
         RobotState getState();
         NoiseParams getNoiseParams();
         mapIntVector3d getPriorLandmarks();

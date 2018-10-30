@@ -51,6 +51,16 @@ InEKF::InEKF(RobotState state) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()
 // Constructor with initial state and noise params
 InEKF::InEKF(RobotState state, NoiseParams params) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), state_(state), noise_params_(params) {}
 
+// Clear all data in the filter
+void InEKF::clear() {
+    state_ = RobotState();
+    noise_params_ = NoiseParams();
+    prior_landmarks_.clear();
+    estimated_landmarks_.clear();
+    contacts_.clear();
+    estimated_contact_positions_.clear();
+}
+
 // Return robot's current state
 RobotState InEKF::getState() { 
     return state_; 

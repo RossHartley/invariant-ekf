@@ -14,12 +14,12 @@
 #ifndef INEKF_H
 #define INEKF_H 
 #include <Eigen/Dense>
-#include <Eigen/StdVector>
 #include <iostream>
 #include <vector>
 #include <map>
-#include <tuple>
+#if INEKF_USE_MUTEX
 #include <mutex>
+#endif
 #include <algorithm>
 #include "RobotState.h"
 #include "NoiseParams.h"
@@ -27,10 +27,31 @@
 
 namespace inekf {
 
-typedef std::map<int,Eigen::Vector3d, std::less<int>, Eigen::aligned_allocator<std::pair<const int,Eigen::Vector3d>>> mapIntVector3d;
-typedef std::vector<std::pair<int,Eigen::Vector3d>, Eigen::aligned_allocator<std::pair<int,Eigen::Vector3d>>> vectorPairIntVector3d;
-typedef std::vector<std::tuple<int,Eigen::Matrix4d,Eigen::Matrix<double,6,6>>, Eigen::aligned_allocator<std::tuple<int,Eigen::Matrix4d,Eigen::Matrix<double,6,6>>>> vectorTupleIntMatrix4dMatrix6d;
-typedef std::vector<std::tuple<int,int,Eigen::Matrix4d,Eigen::Matrix<double,6,6>>, Eigen::aligned_allocator<std::tuple<int,int,Eigen::Matrix4d,Eigen::Matrix<double,6,6>>>> vectorTupleIntIntMatrix4dMatrix6d;
+class Kinematics {
+    public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+        Kinematics(int id_in, Eigen::Matrix4d pose_in, Eigen::Matrix<double,6,6> covariance_in) : id(id_in), pose(pose_in), covariance(covariance_in) { }
+
+        int id;
+        Eigen::Matrix4d pose;
+        Eigen::Matrix<double,6,6> covariance;
+};
+
+class Landmark {
+    public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+        Landmark(int id_in, Eigen::Vector3d position_in) : id(id_in), position(position_in) { }
+
+        int id;
+        Eigen::Vector3d position;
+};
+
+typedef std::map<int,Eigen::Vector3d, std::less<int>, Eigen::aligned_allocator<std::pair<const int,Eigen::Vector3d> > > mapIntVector3d;
+typedef std::map<int,Eigen::Vector3d, std::less<int>, Eigen::aligned_allocator<std::pair<const int,Eigen::Vector3d> > >::iterator mapIntVector3dIterator;
+typedef std::vector<Landmark, Eigen::aligned_allocator<Landmark> > vectorLandmarks;
+typedef std::vector<Landmark, Eigen::aligned_allocator<Landmark> >::const_iterator vectorLandmarksIterator;
+typedef std::vector<Kinematics, Eigen::aligned_allocator<Kinematics> > vectorKinematics;
+typedef std::vector<Kinematics, Eigen::aligned_allocator<Kinematics> >::const_iterator vectorKinematicsIterator;
 
 class Observation {
 
@@ -58,6 +79,7 @@ class InEKF {
         InEKF(RobotState state);
         InEKF(RobotState state, NoiseParams params);
 
+        void clear();
         RobotState getState();
         NoiseParams getNoiseParams();
         mapIntVector3d getPriorLandmarks();
@@ -67,25 +89,25 @@ class InEKF {
         void setState(RobotState state);
         void setNoiseParams(NoiseParams params);
         void setPriorLandmarks(const mapIntVector3d& prior_landmarks);
-        void setContacts(std::vector<std::pair<int,bool>> contacts);
+        void setContacts(std::vector<std::pair<int,bool> > contacts);
 
         void Propagate(const Eigen::Matrix<double,6,1>& m, double dt);
         void Correct(const Observation& obs);
-        void CorrectLandmarks(const vectorPairIntVector3d& measured_landmarks);
-        void CorrectKinematics(const vectorTupleIntMatrix4dMatrix6d& measured_kinematics);
-        // TODO: Kinematics between two contact points (useful to prevent double counting if you want multiple contacts per foot)
-        // TODO: void CorrectKinematics(const vectorTupleIntIntMatrix4dMatrix6d& measured_kinematics); 
+        void CorrectLandmarks(const vectorLandmarks& measured_landmarks);
+        void CorrectKinematics(const vectorKinematics& measured_kinematics);
 
     private:
         RobotState state_;
         NoiseParams noise_params_;
-        const Eigen::Vector3d g_ = (Eigen::VectorXd(3) << 0,0,-9.81).finished(); // Gravity
+        const Eigen::Vector3d g_; // Gravity
         mapIntVector3d prior_landmarks_;
         std::map<int,int> estimated_landmarks_;
-        std::mutex estimated_landmarks_mutex_;
         std::map<int,bool> contacts_;
         std::map<int,int> estimated_contact_positions_;
+#if INEKF_USE_MUTEX
         std::mutex estimated_contacts_mutex_;
+        std::mutex estimated_landmarks_mutex_;
+#endif
 };
 
 } // end inekf namespace

@@ -15,9 +15,9 @@
 #define ROBOTSTATE_H 
 #include <Eigen/Dense>
 #include <iostream>
-#include <thread>
+#if INEKF_USE_MUTEX
 #include <mutex>
-#include <condition_variable>
+#endif
 
 namespace inekf {
 
@@ -30,22 +30,29 @@ class RobotState {
         RobotState(const Eigen::MatrixXd& X, const Eigen::VectorXd& Theta);
         RobotState(const Eigen::MatrixXd& X, const Eigen::VectorXd& Theta, const Eigen::MatrixXd& P);
         
+#if INEKF_USE_MUTEX
         // RobotState(RobotState&& other); // Move initialization
         RobotState(const RobotState& other); // Copy initialization
         // RobotState& operator=(RobotState&& other); // Move assignment
         RobotState& operator=(const RobotState& other); // Copy assignment
+#endif
 
-        const Eigen::MatrixXd getX();
-        const Eigen::VectorXd getTheta();
-        const Eigen::MatrixXd getP();
-        const Eigen::Matrix3d getRotation();
-        const Eigen::Vector3d getVelocity();
-        const Eigen::Vector3d getPosition();
-        const Eigen::Vector3d getGyroscopeBias();
-        const Eigen::Vector3d getAccelerometerBias();
-        const int dimX();
-        const int dimTheta();
-        const int dimP();
+        const Eigen::MatrixXd getX() const;
+        const Eigen::VectorXd getTheta() const;
+        const Eigen::MatrixXd getP() const;
+        const Eigen::Matrix3d getRotation() const;
+        const Eigen::Vector3d getVelocity() const;
+        const Eigen::Vector3d getPosition() const;
+        const Eigen::Vector3d getGyroscopeBias() const;
+        const Eigen::Vector3d getAccelerometerBias() const;
+        const Eigen::Matrix3d getRotationCovariance() const;
+        const Eigen::Matrix3d getVelocityCovariance() const;
+        const Eigen::Matrix3d getPositionCovariance() const;
+        const Eigen::Matrix3d getGyroscopeBiasCovariance() const;
+        const Eigen::Matrix3d getAccelerometerBiasCovariance() const;
+        const int dimX() const;
+        const int dimTheta() const;
+        const int dimP() const;
 
         void setX(const Eigen::MatrixXd& X);
         void setP(const Eigen::MatrixXd& P);
@@ -55,8 +62,12 @@ class RobotState {
         void setPosition(const Eigen::Vector3d& p);
         void setGyroscopeBias(const Eigen::Vector3d& bg);
         void setAccelerometerBias(const Eigen::Vector3d& ba);
-
-        void copyDiagX(int n, Eigen::MatrixXd& BigX);
+        void setRotationCovariance(const Eigen::Matrix3d& cov);
+        void setVelocityCovariance(const Eigen::Matrix3d& cov);
+        void setPositionCovariance(const Eigen::Matrix3d& cov);
+        void setGyroscopeBiasCovariance(const Eigen::Matrix3d& cov);
+        void setAccelerometerBiasCovariance(const Eigen::Matrix3d& cov);
+        void copyDiagX(int n, Eigen::MatrixXd& BigX) const;
 
         friend std::ostream& operator<<(std::ostream& os, const RobotState& s);  
 
@@ -64,7 +75,9 @@ class RobotState {
         Eigen::MatrixXd X_;
         Eigen::VectorXd Theta_;
         Eigen::MatrixXd P_;
+#if INEKF_USE_MUTEX
         mutable std::mutex mutex_;
+#endif
 
 };
 

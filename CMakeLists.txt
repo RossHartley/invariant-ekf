@@ -3,10 +3,32 @@ cmake_minimum_required(VERSION 2.8.3)
 # Project's name
 project(inekf)
 
+option(USE_CPP11 "Use flag -std=c++11" ON)
+option(USE_MUTEX "Use mutex in code" OFF)
+
+message("USE_CPP11: " ${USE_CPP11})
+message("USE_MUTEX: " ${USE_MUTEX})
+
+if (USE_MUTEX AND NOT USE_CPP11)
+message("test")
+    message(FATAL_ERROR "You cannot have USE_CPP11 = OFF AND USE_MUTEX = ON")
+endif (USE_MUTEX AND NOT USE_CPP11)
+
 # Set compiler flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3 -DEIGEN_NO_DEBUG -march=native -Wl,--no-as-needed") 
+if (USE_CPP11)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+endif(USE_CPP11)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -DEIGEN_NO_DEBUG -march=native -Wl,--no-as-needed")
+if (USE_MUTEX)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINEKF_USE_MUTEX=true")
+else (USE_MUTEX)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINEKF_USE_MUTEX=false")
+endif(USE_MUTEX)
 SET(CMAKE_CXX_COMPILER /usr/bin/g++)
 
+message("CMAKE_CXX_FLAGS: " ${CMAKE_CXX_FLAGS})
+unset(USE_CPP11)
+unset(USE_MUTEX)
 
 # Set the output folder where your program will be created  
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
@@ -21,7 +43,7 @@ include_directories("${PROJECT_SOURCE_DIR}/include/")
 find_package (Threads)
 
 # Boost
-find_package(Boost 1.58 REQUIRED COMPONENTS system)
+find_package(Boost 1.57 REQUIRED COMPONENTS system)
 include_directories(${Boost_INCLUDE_DIR})
 message("Boost_INCLUDE_DIR: " ${Boost_INCLUDE_DIR})
 
@@ -44,12 +66,11 @@ add_executable(landmarks ${PROJECT_SOURCE_DIR}/src/examples/landmarks.cpp ${src_
 add_executable(kinematics ${PROJECT_SOURCE_DIR}/src/examples/kinematics.cpp ${src_files})
 add_executable(propagation_speed ${PROJECT_SOURCE_DIR}/src/tests/propagation_speed.cpp ${src_files})
 add_executable(correction_speed ${PROJECT_SOURCE_DIR}/src/tests/correction_speed.cpp ${src_files})
-add_executable(filter_math ${PROJECT_SOURCE_DIR}/src/tests/filter_math.cpp ${src_files})
 
 target_link_libraries(landmarks ${Boost_LIBRARIES})
 target_link_libraries(kinematics ${Boost_LIBRARIES})
+target_link_libraries(propagation_speed ${Boost_LIBRARIES})
 target_link_libraries(correction_speed ${Boost_LIBRARIES})
-target_link_libraries(filter_math ${Boost_LIBRARIES})
 
 # Create Library
 add_library(inekf SHARED

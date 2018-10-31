@@ -14,12 +14,21 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <cstdlib>
 #include <Eigen/Dense>
 #include <boost/algorithm/string.hpp>
 #include "InEKF.h"
 
 #define DT_MIN 1e-6
 #define DT_MAX 1
+
+double stod98(const std::string &s) {
+    return atof(s.c_str());
+}
+
+int stoi98(const std::string &s) {
+    return atoi(s.c_str());
+}
 
 using namespace std;
 using namespace inekf;
@@ -99,13 +108,13 @@ int main() {
         if (measurement[0].compare("IMU")==0){
             cout << "Received IMU Data, propagating state\n";
             assert((measurement.size()-2) == 6);
-            t = stod(measurement[1]); 
-            imu_measurement << stod(measurement[2]), 
-                               stod(measurement[3]), 
-                               stod(measurement[4]),
-                               stod(measurement[5]),
-                               stod(measurement[6]),
-                               stod(measurement[7]);
+            t = stoi98(measurement[1]); 
+            imu_measurement << stoi98(measurement[2]), 
+                               stoi98(measurement[3]), 
+                               stoi98(measurement[4]),
+                               stoi98(measurement[5]),
+                               stoi98(measurement[6]),
+                               stoi98(measurement[7]);
 
             // Propagate using IMU data
             double dt = t - t_prev;
@@ -116,15 +125,16 @@ int main() {
         else if (measurement[0].compare("LANDMARK")==0){
             cout << "Received LANDMARK observation, correcting state\n";
             assert((measurement.size()-2)%4 == 0);
-            t = stod(measurement[1]); 
-            vectorPairIntVector3d measured_landmarks;
+            t = stoi98(measurement[1]); 
+            vectorLandmarks measured_landmarks;
             for (int i=2; i<measurement.size(); i+=4) {
-                int landmark_id = stod(measurement[i]);
+                int id = stoi98(measurement[i]);
                 Eigen::Vector3d p_bl;
-                p_bl << stod(measurement[i+1]), 
-                        stod(measurement[i+2]), 
-                        stod(measurement[i+3]);
-                measured_landmarks.push_back(pair<int,Eigen::Vector3d> (landmark_id, p_bl)); 
+                p_bl << stoi98(measurement[i+1]), 
+                        stoi98(measurement[i+2]), 
+                        stoi98(measurement[i+3]);
+                Landmark landmark(id, p_bl);
+                measured_landmarks.push_back(landmark); 
             }
 
             // Correct state using landmark measurements

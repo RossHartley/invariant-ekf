@@ -17,6 +17,8 @@ namespace inekf {
 
 using namespace std;
 
+const double TOLERANCE = 1e-10;
+
 Eigen::Matrix3d skew(const Eigen::Vector3d& v) {
     // Convert vector to skew-symmetric matrix
     Eigen::Matrix3d M = Eigen::Matrix3d::Zero();

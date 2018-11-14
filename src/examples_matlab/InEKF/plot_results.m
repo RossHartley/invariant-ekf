@@ -235,6 +235,36 @@ title('Position (World) - z')
 ylabel('m')
 xlabel('time (sec)')
 
+%% Contact Plot
+figure(fignum)
+fignum = fignum + 1;
+
+subplot(3,1,1)
+grid on; hold on;
+plot(t, dL(1,:), EstimateLine, 'LineWidth', LineWidth)
+plot(t, dR(1,:), TrueLine, 'LineWidth', LineWidth)
+legend('Left', 'Right')
+title('Contact Positions (World) - x')
+ylabel('m')
+
+subplot(3,1,2)
+grid on; hold on;
+plot(t, dL(2,:), EstimateLine, 'LineWidth', LineWidth)
+plot(t, dR(2,:), TrueLine, 'LineWidth', LineWidth)
+legend('Left', 'Right')
+title('Contact Positions (World) - y')
+ylabel('m')
+
+subplot(3,1,3)
+grid on; hold on;
+plot(t, dL(3,:), EstimateLine, 'LineWidth', LineWidth)
+plot(t, dR(3,:), TrueLine, 'LineWidth', LineWidth)
+legend('Left', 'Right')
+title('Contact Positions (World) - z')
+ylabel('m')
+xlabel('time (sec)')
+
+
 %% Landmark Plot
 % for i = 1:length(lm)
 %     if all(all(isnan(lm{i})))

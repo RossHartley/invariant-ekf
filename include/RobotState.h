@@ -68,6 +68,7 @@ class RobotState {
         void setGyroscopeBiasCovariance(const Eigen::Matrix3d& cov);
         void setAccelerometerBiasCovariance(const Eigen::Matrix3d& cov);
         void copyDiagX(int n, Eigen::MatrixXd& BigX) const;
+        void copyDiagXinv(int n, Eigen::MatrixXd& BigXinv) const;
 
         friend std::ostream& operator<<(std::ostream& os, const RobotState& s);  
 

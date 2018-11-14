@@ -92,9 +92,11 @@ class InEKF {
         void setContacts(std::vector<std::pair<int,bool> > contacts);
 
         void Propagate(const Eigen::Matrix<double,6,1>& m, double dt);
-        void Correct(const Observation& obs);
+        void CorrectRightInvariant(const Observation& obs);
+        void CorrectLeftInvariant(const Observation& obs);
         void CorrectLandmarks(const vectorLandmarks& measured_landmarks);
         void CorrectKinematics(const vectorKinematics& measured_kinematics);
+        void CorrectContactPositionZ(const std::vector<std::pair<int,double> >& measured_contact_positions_z);
 
     private:
         RobotState state_;

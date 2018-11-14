@@ -178,7 +178,7 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& m, double dt) {
     Qk.block<3,3>(3,3) = noise_params_.getAccelerometerCov();
     for(map<int,int>::iterator it=estimated_contact_positions_.begin(); it!=estimated_contact_positions_.end(); ++it) {
         Qk.block<3,3>(3+3*(it->second-3),3+3*(it->second-3)) = noise_params_.getContactCov(); // Contact noise terms
-    }
+    } // TODO: Use kinematic orientation to map noise from contact frame to body frame
     Qk.block<3,3>(dimP-dimTheta,dimP-dimTheta) = noise_params_.getGyroscopeBiasCov();
     Qk.block<3,3>(dimP-dimTheta+3,dimP-dimTheta+3) = noise_params_.getAccelerometerBiasCov();
 
@@ -186,9 +186,9 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& m, double dt) {
     Eigen::MatrixXd I = Eigen::MatrixXd::Identity(dimP,dimP);
     Eigen::MatrixXd Phi = I + A*dt; // Fast approximation of exp(A*dt). TODO: explore using the full exp() instead
     Eigen::MatrixXd Adj = I;
-    Adj.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(X); // Approx 200 microseconds
+    Adj.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(X); 
     Eigen::MatrixXd PhiAdj = Phi * Adj;
-    Eigen::MatrixXd Qk_hat = PhiAdj * Qk * PhiAdj.transpose() * dt; // Approximated discretized noise matrix (faster by 400 microseconds)
+    Eigen::MatrixXd Qk_hat = PhiAdj * Qk * PhiAdj.transpose() * dt; // Approximated discretized noise matrix
 
     // Propagate Covariance
     Eigen::MatrixXd P_pred = Phi * P * Phi.transpose() + Qk_hat;
@@ -200,7 +200,7 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& m, double dt) {
 }
 
 // Correct State: Right-Invariant Observation
-void InEKF::Correct(const Observation& obs) {
+void InEKF::CorrectRightInvariant(const Observation& obs) {
     // Compute Kalman Gain
     Eigen::MatrixXd P = state_.getP();
     Eigen::MatrixXd PHT = P * obs.H.transpose();
@@ -230,6 +230,51 @@ void InEKF::Correct(const Observation& obs) {
     state_.setP(P_new); 
 }   
 
+
+// Correct State: Left-Invariant Observation
+void InEKF::CorrectLeftInvariant(const Observation& obs) {
+
+    // Compute Kalman Gain
+    Eigen::MatrixXd P = state_.getP();
+    // For now, the covariance is always assumed to be right-invariant
+    // therefore, we need to map it temporarily to left-invariant for this correction
+    int dimP = state_.dimP();
+    int dimTheta = state_.dimTheta();
+    Eigen::MatrixXd Adj = Eigen::MatrixXd::Identity(dimP,dimP);
+    Adj.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(state_.getX());
+    Eigen::MatrixXd Adj_inv = Adj.inverse();
+    P = (Adj_inv * P * Adj_inv.transpose()).eval(); 
+
+    Eigen::MatrixXd PHT = P * obs.H.transpose();
+    Eigen::MatrixXd S = obs.H * PHT + obs.N;
+    Eigen::MatrixXd K = PHT * S.inverse();
+
+    // Copy X along the diagonals if more than one measurement
+    Eigen::MatrixXd BigXinv;
+    state_.copyDiagXinv(obs.Y.rows()/state_.dimX(), BigXinv);
+    // Compute correction terms
+    Eigen::MatrixXd Z = BigXinv*obs.Y - obs.b;
+    Eigen::VectorXd delta = K*obs.PI*Z;
+    Eigen::MatrixXd dX = Exp_SEK3(delta.segment(0,delta.rows()-state_.dimTheta()));
+    Eigen::VectorXd dTheta = delta.segment(delta.rows()-state_.dimTheta(), state_.dimTheta());
+
+    // Update state
+    Eigen::MatrixXd X_new = state_.getX()*dX; // Left-Invariant Update
+    Eigen::VectorXd Theta_new = state_.getTheta() + dTheta;
+    state_.setX(X_new); 
+    state_.setTheta(Theta_new);
+
+    // Update Covariance
+    Eigen::MatrixXd IKH = Eigen::MatrixXd::Identity(state_.dimP(),state_.dimP()) - K*obs.H;
+    Eigen::MatrixXd P_new = IKH * P * IKH.transpose() + K*obs.N*K.transpose(); // Joseph update form
+    // For now, the covariance is always assumed to be right-invariant
+    // therefore, we need to map it back right-invariant 
+    P_new = (Adj * P_new * Adj.transpose()).eval(); 
+
+    state_.setP(P_new); 
+}   
+
+
 // Create Observation from vector of landmark measurements
 void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
 #if INEKF_USE_MUTEX
@@ -258,6 +303,7 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
         if (it_prior!=prior_landmarks_.end()) {
             // Found in prior landmark set
             int dimX = state_.dimX();
+            int dimTheta = state_.dimTheta();
             int dimP = state_.dimP();
             int startIndex;
 
@@ -301,6 +347,7 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
         } else if (it_estimated!=estimated_landmarks_.end()) {;
             // Found in estimated landmark set
             int dimX = state_.dimX();
+            int dimTheta = state_.dimTheta();
             int dimP = state_.dimP();
             int startIndex;
 
@@ -324,7 +371,7 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
             H.conservativeResize(startIndex+3, dimP);
             H.block(startIndex,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
             H.block(startIndex,6,3,3) = -Eigen::Matrix3d::Identity(); // -I
-            H.block(startIndex,3*it_estimated->second-6,3,3) = Eigen::Matrix3d::Identity(); // I
+            H.block(startIndex,3*it_estimated->second-dimTheta,3,3) = Eigen::Matrix3d::Identity(); // I
 
             // Fill out N
             startIndex = N.rows();
@@ -352,7 +399,7 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
     // Correct state using stacked observation
     Observation obs(Y,b,H,N,PI);
     if (!obs.empty()) {
-        this->Correct(obs);
+        this->CorrectRightInvariant(obs);
     }
 
     // Augment state with newly detected landmarks
@@ -431,6 +478,7 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
         // If contact is indicated and id is found in estimated_contacts_, then correct using kinematics
         } else if (contact_indicated && found) {
             int dimX = state_.dimX();
+            int dimTheta = state_.dimTheta();
             int dimP = state_.dimP();
             int startIndex;
 
@@ -454,7 +502,7 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
             H.conservativeResize(startIndex+3, dimP);
             H.block(startIndex,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
             H.block(startIndex,6,3,3) = -Eigen::Matrix3d::Identity(); // -I
-            H.block(startIndex,3*it_estimated->second-6,3,3) = Eigen::Matrix3d::Identity(); // I
+            H.block(startIndex,3*it_estimated->second-dimTheta,3,3) = Eigen::Matrix3d::Identity(); // I
 
             // Fill out N
             startIndex = N.rows();
@@ -481,7 +529,8 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
     // Correct state using stacked observation
     Observation obs(Y,b,H,N,PI);
     if (!obs.empty()) {
-        this->Correct(obs);
+        // std::cout << obs << endl; 
+        this->CorrectRightInvariant(obs);
     }
 
     // Remove contacts from state
@@ -540,11 +589,11 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
             // Initialize new landmark covariance - TODO:speed up
             Eigen::MatrixXd F = Eigen::MatrixXd::Zero(state_.dimP()+3,state_.dimP()); 
             F.block(0,0,state_.dimP()-state_.dimTheta(),state_.dimP()-state_.dimTheta()) = Eigen::MatrixXd::Identity(state_.dimP()-state_.dimTheta(),state_.dimP()-state_.dimTheta()); // for old X
-            F.block(state_.dimP()-state_.dimTheta(),6,3,3) = Eigen::Matrix3d::Identity(); // for new landmark
+            F.block(state_.dimP()-state_.dimTheta(),6,3,3) = Eigen::Matrix3d::Identity(); // for new contact
             F.block(state_.dimP()-state_.dimTheta()+3,state_.dimP()-state_.dimTheta(),state_.dimTheta(),state_.dimTheta()) = Eigen::MatrixXd::Identity(state_.dimTheta(),state_.dimTheta()); // for theta
             Eigen::MatrixXd G = Eigen::MatrixXd::Zero(F.rows(),3);
             G.block(G.rows()-state_.dimTheta()-3,0,3,3) = R;
-            P_aug = (F*P_aug*F.transpose() + G*it->covariance.block<3,3>(3,3)*G.transpose()).eval();
+            P_aug = (F*P_aug*F.transpose() + G*it->covariance.block<3,3>(3,3)*G.transpose()).eval(); 
 
             // Update state and covariance
             state_.setX(X_aug);
@@ -554,8 +603,79 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
             estimated_contact_positions_.insert(pair<int,int> (it->id, startIndex));
         }
     }
+    return; 
+}
 
-    return;
+
+// Observation of absolute z-position of contact points (Left-Invariant Measurement)
+void InEKF::CorrectContactPositionZ(const std::vector<std::pair<int,double> >& measured_contact_positions_z) {
+#if INEKF_USE_MUTEX
+    lock_guard<mutex> mlock(estimated_contacts_mutex_);
+#endif
+    Eigen::VectorXd Y;
+    Eigen::VectorXd b;
+    Eigen::MatrixXd H;
+    Eigen::MatrixXd N;
+    Eigen::MatrixXd PI;
+    
+    // Loop over measurements
+    for (vector<pair<int,double> >::const_iterator it=measured_contact_positions_z.begin(); it!=measured_contact_positions_z.end(); ++it) {
+
+        // See if we can find id estimated_contact_positions
+        map<int,int>::iterator it_estimated = estimated_contact_positions_.find(it->first);
+        if (it_estimated==estimated_contact_positions_.end()) { continue; };
+
+        // Fill out observation data
+        int dimX = state_.dimX();
+        int dimTheta = state_.dimTheta();
+        int dimP = state_.dimP();
+        int startIndex;
+
+        // Fill out Y
+        startIndex = Y.rows();
+        Y.conservativeResize(startIndex+dimX, Eigen::NoChange);
+        Y.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
+        Y(startIndex+2) = it->second; // w_p_wc (z)
+        Y(startIndex+it_estimated->second) = 1;       
+
+        // Fill out b
+        startIndex = b.rows();
+        b.conservativeResize(startIndex+dimX, Eigen::NoChange);
+        b.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
+        b(startIndex+it_estimated->second) = 1;       
+
+        // Fill out H
+        startIndex = H.rows();
+        H.conservativeResize(startIndex+1, dimP);
+        H.block(startIndex,0,1,dimP) = Eigen::MatrixXd::Zero(1,dimP);
+        H(startIndex,3*it_estimated->second-dimTheta+2) = -1; 
+
+        // Fill out N
+        startIndex = N.rows();
+        N.conservativeResize(startIndex+1, startIndex+1);
+        N.block(startIndex,0,1,startIndex) = Eigen::MatrixXd::Zero(1,startIndex);
+        N.block(0,startIndex,startIndex,1) = Eigen::MatrixXd::Zero(startIndex,1);
+        Eigen::Matrix3d tmp = 0.001*Eigen::Matrix3d::Identity();
+        N(startIndex,startIndex) = tmp(2,2);
+
+        // Fill out PI      
+        startIndex = PI.rows();
+        int startIndex2 = PI.cols();
+        PI.conservativeResize(startIndex+1, startIndex2+dimX);
+        PI.block(startIndex,0,1,startIndex2) = Eigen::MatrixXd::Zero(1,startIndex2);
+        PI.block(0,startIndex2,startIndex,dimX) = Eigen::MatrixXd::Zero(startIndex,dimX);
+        PI.block(startIndex,startIndex2,1,dimX) = Eigen::MatrixXd::Zero(1,dimX);
+        PI(startIndex,startIndex2+2) = 1;
+    }
+
+    // Correct state using stacked observation
+    Observation obs(Y,b,H,N,PI);
+    if (!obs.empty()) {
+        // this->CorrectLeftInvariant(obs);
+        this->CorrectRightInvariant(obs);
+        // cout << obs << endl;
+    }
+
 }
 
 

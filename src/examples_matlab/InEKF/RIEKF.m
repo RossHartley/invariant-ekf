@@ -27,6 +27,8 @@ classdef RIEKF < matlab.System & matlab.system.mixin.Propagates %#codegen
         enable_landmark_measurements = false;
         % Enable Static Landmarks
         enable_static_landmarks = false;
+        % Enable Flat Ground measurement
+        enable_flat_ground_measurements = false;
         % Gyroscope Noise std
         gyro_noise_std = 0.1*ones(3,1);
         % Gyroscope Bias Noise std
@@ -175,32 +177,9 @@ classdef RIEKF < matlab.System & matlab.system.mixin.Propagates %#codegen
             %   Date:   1/19/2018
             %
             
-%             %%% FILTER TEST
-%             obj.X = eye(7);
-%             obj.P = eye(21);
-%             
-%             landmarks = zeros(4,3);
-%             landmarks(:,1) = [1; 1;2;3];
-%             landmarks(:,2) = [2; 4;5;6];
-%             landmarks(:,3) = [3; 7;8;9];
-%             obj.Ql = 0.1^2*eye(3);
-% %             obj.Update_StaticLandmarks(landmarks);
-%             obj.Update_Landmarks(landmarks);    
-% 
-%             m = [1;2;3;4;5;6];
-%             dt = 0.1;
-%             obj.Qg = 0.01^2*eye(3);
-%             obj.Qa = 0.1^2*eye(3);
-%             obj.Qbg = 0.00001^2*eye(3);
-%             obj.Qba = 0.0001^2*eye(3);
-%             obj.Predict_State(m(1:3), m(4:6), zeros(14,1), zeros(2,1), dt);
-%             obj.Predict_State(m(1:3), m(4:6), zeros(14,1), zeros(2,1), dt);
-% 
-% %             obj.Update_StaticLandmarks(landmarks);
-%             obj.Update_Landmarks(landmarks);
-%             %%%%%%
-            
-            
+%             X_init = eye(7);
+%             X_init(1:3,1:3) = [1,0,0; 0,-1,0; 0,0,-1];
+                        
             % Initialize bias
             % (does nothing if bias is already initialized)
             obj.InitializeBias(w, a, X_init)
@@ -223,6 +202,11 @@ classdef RIEKF < matlab.System & matlab.system.mixin.Propagates %#codegen
                     % Update state using forward kinematic measurements
                     if obj.enable_kinematic_measurements
                         obj.Update_ForwardKinematics(encoders, contact);
+                    end
+                    
+                    % Update state using flat ground measurements
+                    if obj.enable_flat_ground_measurements
+                        obj.Update_ContactHeights(contact,0);
                     end
                     
                     % Update state using landmark position measurements
@@ -490,6 +474,33 @@ classdef RIEKF < matlab.System & matlab.system.mixin.Propagates %#codegen
             
         end
         
+        function [] = Update_State_LeftInvariant(obj, Y, b, H, N, PI)
+            % Update State and Covariance from a left-invariant measurement
+            % Compute Kalman Gain
+            Adj_inv = inv(blkdiag(obj.Adjoint(obj.X), eye(6)));
+            obj.P = Adj_inv * obj.P * Adj_inv';
+            S = H * obj.P * H' + N;
+            K = (obj.P * H')/S;
+            
+            % Copy X along the diagonals if more than one measurement
+            X_cell = repmat({inv(obj.X)}, 1, length(Y)/size(obj.X,1));
+            Z = blkdiag(X_cell{:}) * Y - b;
+            
+            % Update State
+            delta = K*PI*Z;
+            dX = obj.exp(delta(1:end-6));
+            dtheta = delta(end-5:end);
+            obj.X = obj.X * dX;
+%             obj.theta = obj.theta + dtheta;
+            
+            % Update Covariance
+            I = eye(size(obj.P));
+            obj.P = (I - K*H)* obj.P *(I - K*H)' + K*N*K'; % Joseph update form
+            Adj = blkdiag(obj.Adjoint(obj.X), eye(6));
+            obj.P = Adj * obj.P * Adj';
+            
+        end
+        
         function [] = Update_ForwardKinematics(obj, encoders, contact)
             % Function to perform Right-Invariant EKF update from forward
             % kinematic measurements
@@ -638,6 +649,54 @@ classdef RIEKF < matlab.System & matlab.system.mixin.Propagates %#codegen
                 end
             end
             
+        end
+        
+        
+        function [] = Update_ContactHeights(obj, contact, h)
+            M = length(obj.landmark_ids);
+            
+            if contact(2) == 1 && contact(1) == 1 
+                
+                % Measurement Model
+                Y = [0;0;h; 0; 0; 1; 0; zeros(M,1); 
+                     0;0;h; 0; 0; 0; 1; zeros(M,1)];
+                b = zeros(size(Y));
+                H = -[zeros(1,3), zeros(1,3), zeros(1,3), 0,0,1, zeros(1,3), zeros(1,3*M), zeros(1,6);
+                     zeros(1,3), zeros(1,3), zeros(1,3), zeros(1,3), 0,0,1, zeros(1,3*M), zeros(1,6)];
+                N = blkdiag(0.001, ...
+                            0.001);  
+                PI = [0,0,1, zeros(1,4), zeros(1,M), zeros(1,7), zeros(1,M);
+                     zeros(1,7), zeros(1,M), 0,0,1, zeros(1,4), zeros(1,M)];
+
+                % Update State
+                obj.Update_State(Y, b, H, N, PI);
+                %obj.Update_State_LeftInvariant(Y, b, H, N, PI);
+                        
+            elseif contact(2) == 1 
+                % Measurement Model
+                Y = [0;0;h; 0; 0; 1; 0; zeros(M,1)];
+                b = zeros(size(Y));
+                H = -[zeros(1,3), zeros(1,3), zeros(1,3), 0,0,1, zeros(1,3), zeros(1,3*M), zeros(1,6)];
+                N = blkdiag(0.001);  
+                PI = [0,0,1, zeros(1,4), zeros(1,M)];
+
+                % Update State
+                obj.Update_State(Y, b, H, N, PI);
+                %obj.Update_State_LeftInvariant(Y, b, H, N, PI);
+                
+            elseif contact(1) == 1 
+                % Measurement Model
+                Y = [0;0;h; 0; 0; 0; 1; zeros(M,1)];
+                b = zeros(size(Y));
+                H = -[zeros(1,3), zeros(1,3), zeros(1,3), zeros(1,3), 0,0,1, zeros(1,3*M), zeros(1,6)];
+                N = blkdiag(0.001);
+                PI = [0,0,1, zeros(1,4), zeros(1,M)];
+                
+                % Update State
+                obj.Update_State(Y, b, H, N, PI);
+                %obj.Update_State_LeftInvariant(Y, b, H, N, PI);
+                
+            end
         end
                   
         

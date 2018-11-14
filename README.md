@@ -1,6 +1,8 @@
 # inekf
 This repository contains a C++ library that implements an invariant extended Kalman filter (InEKF) for 3D aided inertial navigation. 
 
+[![InEKF LiDAR Mapping](https://i.imgur.com/BwtIepo.jpg)](https://www.youtube.com/watch?v=pNyXsZ5zVZk)
+
 This filter can be used to estimate a robot's 3D pose and velocity using an IMU motion model for propagation. The following measurements are currently supported:
 * Prior landmark position measurements (localization)
 * Estiamted landmark position measurements (SLAM)

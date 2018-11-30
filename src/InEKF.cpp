@@ -62,7 +62,7 @@ void InEKF::clear() {
 }
 
 // Return robot's current state
-RobotState InEKF::getState() { 
+RobotState InEKF::getState() const { 
     return state_; 
 }
 
@@ -72,7 +72,7 @@ void InEKF::setState(RobotState state) {
 }
 
 // Return noise params
-NoiseParams InEKF::getNoiseParams() { 
+NoiseParams InEKF::getNoiseParams() const { 
     return noise_params_; 
 }
 
@@ -82,7 +82,7 @@ void InEKF::setNoiseParams(NoiseParams params) {
 }
 
 // Return filter's prior (static) landmarks
-mapIntVector3d InEKF::getPriorLandmarks() { 
+mapIntVector3d InEKF::getPriorLandmarks() const { 
     return prior_landmarks_; 
 }
 
@@ -92,7 +92,7 @@ void InEKF::setPriorLandmarks(const mapIntVector3d& prior_landmarks) {
 }
 
 // Return filter's estimated landmarks
-map<int,int> InEKF::getEstimatedLandmarks() { 
+map<int,int> InEKF::getEstimatedLandmarks() const { 
 #if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_landmarks_mutex_);
 #endif
@@ -100,7 +100,7 @@ map<int,int> InEKF::getEstimatedLandmarks() {
 }
 
 // Return filter's estimated landmarks
-map<int,int> InEKF::getEstimatedContactPositions() { 
+map<int,int> InEKF::getEstimatedContactPositions() const { 
 #if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_contacts_mutex_);
 #endif
@@ -124,7 +124,7 @@ void InEKF::setContacts(vector<pair<int,bool> > contacts) {
 }
 
 // Return the filter's contact state
-std::map<int,bool> InEKF::getContacts() {
+std::map<int,bool> InEKF::getContacts() const {
 #if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_contacts_mutex_);
 #endif
@@ -243,7 +243,7 @@ void InEKF::CorrectLeftInvariant(const Observation& obs) {
     Eigen::MatrixXd Adj = Eigen::MatrixXd::Identity(dimP,dimP);
     Adj.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(state_.getX());
     Eigen::MatrixXd Adj_inv = Adj.inverse();
-    P = (Adj_inv * P * Adj_inv.transpose()).eval(); 
+    P = (Adj * P * Adj.transpose()).eval(); 
 
     Eigen::MatrixXd PHT = P * obs.H.transpose();
     Eigen::MatrixXd S = obs.H * PHT + obs.N;
@@ -269,7 +269,7 @@ void InEKF::CorrectLeftInvariant(const Observation& obs) {
     Eigen::MatrixXd P_new = IKH * P * IKH.transpose() + K*obs.N*K.transpose(); // Joseph update form
     // For now, the covariance is always assumed to be right-invariant
     // therefore, we need to map it back right-invariant 
-    P_new = (Adj * P_new * Adj.transpose()).eval(); 
+    P_new = (Adj_inv * P_new * Adj_inv.transpose()).eval(); 
 
     state_.setP(P_new); 
 }   
@@ -648,7 +648,7 @@ void InEKF::CorrectContactPositionZ(const std::vector<std::pair<int,double> >& m
         startIndex = H.rows();
         H.conservativeResize(startIndex+1, dimP);
         H.block(startIndex,0,1,dimP) = Eigen::MatrixXd::Zero(1,dimP);
-        H(startIndex,3*it_estimated->second-dimTheta+2) = -1; 
+        H(startIndex,3*it_estimated->second-dimTheta+2) = 1; 
 
         // Fill out N
         startIndex = N.rows();
@@ -671,8 +671,8 @@ void InEKF::CorrectContactPositionZ(const std::vector<std::pair<int,double> >& m
     // Correct state using stacked observation
     Observation obs(Y,b,H,N,PI);
     if (!obs.empty()) {
-        // this->CorrectLeftInvariant(obs);
-        this->CorrectRightInvariant(obs);
+        this->CorrectLeftInvariant(obs);
+        // this->CorrectRightInvariant(obs);
         // cout << obs << endl;
     }
 

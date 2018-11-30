@@ -80,12 +80,12 @@ class InEKF {
         InEKF(RobotState state, NoiseParams params);
 
         void clear();
-        RobotState getState();
-        NoiseParams getNoiseParams();
-        mapIntVector3d getPriorLandmarks();
-        std::map<int,int> getEstimatedLandmarks();
-        std::map<int,bool> getContacts();
-        std::map<int,int> getEstimatedContactPositions();
+        RobotState getState() const;
+        NoiseParams getNoiseParams() const;
+        mapIntVector3d getPriorLandmarks() const;
+        std::map<int,int> getEstimatedLandmarks() const;
+        std::map<int,bool> getContacts() const;
+        std::map<int,int> getEstimatedContactPositions() const;
         void setState(RobotState state);
         void setNoiseParams(NoiseParams params);
         void setPriorLandmarks(const mapIntVector3d& prior_landmarks);

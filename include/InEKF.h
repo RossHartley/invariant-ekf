@@ -47,11 +47,12 @@ class Landmark {
 };
 
 typedef std::map<int,Eigen::Vector3d, std::less<int>, Eigen::aligned_allocator<std::pair<const int,Eigen::Vector3d> > > mapIntVector3d;
-typedef std::map<int,Eigen::Vector3d, std::less<int>, Eigen::aligned_allocator<std::pair<const int,Eigen::Vector3d> > >::iterator mapIntVector3dIterator;
+typedef std::map<int,Eigen::Vector3d, std::less<int>, Eigen::aligned_allocator<std::pair<const int,Eigen::Vector3d> > >::const_iterator mapIntVector3dIterator;
 typedef std::vector<Landmark, Eigen::aligned_allocator<Landmark> > vectorLandmarks;
 typedef std::vector<Landmark, Eigen::aligned_allocator<Landmark> >::const_iterator vectorLandmarksIterator;
 typedef std::vector<Kinematics, Eigen::aligned_allocator<Kinematics> > vectorKinematics;
 typedef std::vector<Kinematics, Eigen::aligned_allocator<Kinematics> >::const_iterator vectorKinematicsIterator;
+
 
 class Observation {
 
@@ -96,7 +97,7 @@ class InEKF {
         void CorrectLeftInvariant(const Observation& obs);
         void CorrectLandmarks(const vectorLandmarks& measured_landmarks);
         void CorrectKinematics(const vectorKinematics& measured_kinematics);
-        void CorrectContactPositionZ(const std::vector<std::pair<int,double> >& measured_contact_positions_z);
+        void CorrectContactPosition(const mapIntVector3d& measured_contact_positions, const Eigen::Vector3d indices);
 
     private:
         RobotState state_;

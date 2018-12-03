@@ -226,7 +226,6 @@ void InEKF::CorrectRightInvariant(const Observation& obs) {
     // Update Covariance
     Eigen::MatrixXd IKH = Eigen::MatrixXd::Identity(state_.dimP(),state_.dimP()) - K*obs.H;
     Eigen::MatrixXd P_new = IKH * P * IKH.transpose() + K*obs.N*K.transpose(); // Joseph update form
-
     state_.setP(P_new); 
 }   
 
@@ -241,8 +240,7 @@ void InEKF::CorrectLeftInvariant(const Observation& obs) {
     int dimP = state_.dimP();
     int dimTheta = state_.dimTheta();
     Eigen::MatrixXd Adj = Eigen::MatrixXd::Identity(dimP,dimP);
-    Adj.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(state_.getX());
-    Eigen::MatrixXd Adj_inv = Adj.inverse();
+    Adj.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(state_.getX().inverse()); // TODO: move to analytical inverse
     P = (Adj * P * Adj.transpose()).eval(); 
 
     Eigen::MatrixXd PHT = P * obs.H.transpose();
@@ -269,8 +267,8 @@ void InEKF::CorrectLeftInvariant(const Observation& obs) {
     Eigen::MatrixXd P_new = IKH * P * IKH.transpose() + K*obs.N*K.transpose(); // Joseph update form
     // For now, the covariance is always assumed to be right-invariant
     // therefore, we need to map it back right-invariant 
-    P_new = (Adj_inv * P_new * Adj_inv.transpose()).eval(); 
-
+    Adj.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(state_.getX()); // TODO: move to analytical inverse
+    P_new = (Adj * P_new * Adj.transpose()).eval(); 
     state_.setP(P_new); 
 }   
 
@@ -608,7 +606,7 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
 
 
 // Observation of absolute z-position of contact points (Left-Invariant Measurement)
-void InEKF::CorrectContactPositionZ(const std::vector<std::pair<int,double> >& measured_contact_positions_z) {
+void InEKF::CorrectContactPosition(const mapIntVector3d& measured_contact_positions, const Eigen::Vector3d indices) {
 #if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_contacts_mutex_);
 #endif
@@ -619,7 +617,7 @@ void InEKF::CorrectContactPositionZ(const std::vector<std::pair<int,double> >& m
     Eigen::MatrixXd PI;
     
     // Loop over measurements
-    for (vector<pair<int,double> >::const_iterator it=measured_contact_positions_z.begin(); it!=measured_contact_positions_z.end(); ++it) {
+    for (mapIntVector3dIterator it=measured_contact_positions.begin(); it!=measured_contact_positions.end(); ++it) {
 
         // See if we can find id estimated_contact_positions
         map<int,int>::iterator it_estimated = estimated_contact_positions_.find(it->first);
@@ -635,7 +633,11 @@ void InEKF::CorrectContactPositionZ(const std::vector<std::pair<int,double> >& m
         startIndex = Y.rows();
         Y.conservativeResize(startIndex+dimX, Eigen::NoChange);
         Y.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
-        Y(startIndex+2) = it->second; // w_p_wc (z)
+        Eigen::MatrixXd X = state_.getX();
+        Y.segment<3>(startIndex) = X.block<3,1>(0,it_estimated->second);
+        if (indices(0)) { Y(startIndex) = it->second(0); }   // w_p_wc (x)
+        if (indices(1)) { Y(startIndex+1) = it->second(1); } // w_p_wc (y)
+        if (indices(2)) { Y(startIndex+2) = it->second(2); } // w_p_wc (z)
         Y(startIndex+it_estimated->second) = 1;       
 
         // Fill out b
@@ -646,33 +648,31 @@ void InEKF::CorrectContactPositionZ(const std::vector<std::pair<int,double> >& m
 
         // Fill out H
         startIndex = H.rows();
-        H.conservativeResize(startIndex+1, dimP);
-        H.block(startIndex,0,1,dimP) = Eigen::MatrixXd::Zero(1,dimP);
-        H(startIndex,3*it_estimated->second-dimTheta+2) = 1; 
+        H.conservativeResize(startIndex+3, dimP);
+        H.block(startIndex,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
+        H.block<3,3>(startIndex,3*it_estimated->second-dimTheta) = Eigen::Matrix3d::Identity(); 
 
         // Fill out N
         startIndex = N.rows();
-        N.conservativeResize(startIndex+1, startIndex+1);
-        N.block(startIndex,0,1,startIndex) = Eigen::MatrixXd::Zero(1,startIndex);
-        N.block(0,startIndex,startIndex,1) = Eigen::MatrixXd::Zero(startIndex,1);
-        Eigen::Matrix3d tmp = 0.001*Eigen::Matrix3d::Identity();
-        N(startIndex,startIndex) = tmp(2,2);
+        N.conservativeResize(startIndex+3, startIndex+3);
+        N.block(startIndex,0,3,startIndex) = Eigen::MatrixXd::Zero(3,startIndex);
+        N.block(0,startIndex,startIndex,3) = Eigen::MatrixXd::Zero(startIndex,3);
+        N.block(startIndex,startIndex,3,3) = 0.001*Eigen::Matrix3d::Identity();
 
         // Fill out PI      
         startIndex = PI.rows();
         int startIndex2 = PI.cols();
-        PI.conservativeResize(startIndex+1, startIndex2+dimX);
-        PI.block(startIndex,0,1,startIndex2) = Eigen::MatrixXd::Zero(1,startIndex2);
+        PI.conservativeResize(startIndex+3, startIndex2+dimX);
+        PI.block(startIndex,0,3,startIndex2) = Eigen::MatrixXd::Zero(3,startIndex2);
         PI.block(0,startIndex2,startIndex,dimX) = Eigen::MatrixXd::Zero(startIndex,dimX);
-        PI.block(startIndex,startIndex2,1,dimX) = Eigen::MatrixXd::Zero(1,dimX);
-        PI(startIndex,startIndex2+2) = 1;
+        PI.block(startIndex,startIndex2,3,dimX) = Eigen::MatrixXd::Zero(3,dimX);
+        PI.block(startIndex,startIndex2,3,3) = Eigen::Matrix3d::Identity();
     }
 
     // Correct state using stacked observation
     Observation obs(Y,b,H,N,PI);
     if (!obs.empty()) {
         this->CorrectLeftInvariant(obs);
-        // this->CorrectRightInvariant(obs);
         // cout << obs << endl;
     }
 

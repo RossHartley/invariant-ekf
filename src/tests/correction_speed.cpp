@@ -78,7 +78,8 @@ int main() {
                 p_bl << stod98(measurement[i+1]), 
                         stod98(measurement[i+2]), 
                         stod98(measurement[i+3]);
-                Landmark landmark(id, p_bl);
+                Eigen::Matrix3d cov = 0.01*Eigen::Matrix3d::Identity();
+                Landmark landmark(id, p_bl, cov);
                 measured_landmarks.push_back(landmark); 
             }
         }

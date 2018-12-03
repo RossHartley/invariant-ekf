@@ -278,11 +278,8 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
 #if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_landmarks_mutex_);
 #endif
-    Eigen::VectorXd Y;
-    Eigen::VectorXd b;
-    Eigen::MatrixXd H;
-    Eigen::MatrixXd N;
-    Eigen::MatrixXd PI;
+    Eigen::VectorXd Y, b;
+    Eigen::MatrixXd H, N, PI;
 
     Eigen::Matrix3d R = state_.getRotation();
     vectorLandmarks new_landmarks;
@@ -331,7 +328,7 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
             N.conservativeResize(startIndex+3, startIndex+3);
             N.block(startIndex,0,3,startIndex) = Eigen::MatrixXd::Zero(3,startIndex);
             N.block(0,startIndex,startIndex,3) = Eigen::MatrixXd::Zero(startIndex,3);
-            N.block(startIndex,startIndex,3,3) = R * noise_params_.getLandmarkCov() * R.transpose();
+            N.block(startIndex,startIndex,3,3) = R * it->covariance * R.transpose();
 
             // Fill out PI      
             startIndex = PI.rows();
@@ -376,7 +373,7 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
             N.conservativeResize(startIndex+3, startIndex+3);
             N.block(startIndex,0,3,startIndex) = Eigen::MatrixXd::Zero(3,startIndex);
             N.block(0,startIndex,startIndex,3) = Eigen::MatrixXd::Zero(startIndex,3);
-            N.block(startIndex,startIndex,3,3) = R * noise_params_.getLandmarkCov() * R.transpose();
+            N.block(startIndex,startIndex,3,3) = R * it->covariance * R.transpose();
 
             // Fill out PI      
             startIndex = PI.rows();
@@ -421,7 +418,7 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
             F.block(state_.dimP()-state_.dimTheta()+3,state_.dimP()-state_.dimTheta(),state_.dimTheta(),state_.dimTheta()) = Eigen::MatrixXd::Identity(state_.dimTheta(),state_.dimTheta()); // for theta
             Eigen::MatrixXd G = Eigen::MatrixXd::Zero(F.rows(),3);
             G.block(G.rows()-state_.dimTheta()-3,0,3,3) = R;
-            P_aug = (F*P_aug*F.transpose() + G*noise_params_.getLandmarkCov()*G.transpose()).eval();
+            P_aug = (F*P_aug*F.transpose() + G*it->covariance*G.transpose()).eval();
 
             // Update state and covariance
             state_.setX(X_aug);
@@ -439,11 +436,8 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
 #if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_contacts_mutex_);
 #endif
-    Eigen::VectorXd Y;
-    Eigen::VectorXd b;
-    Eigen::MatrixXd H;
-    Eigen::MatrixXd N;
-    Eigen::MatrixXd PI;
+    Eigen::VectorXd Y, b;
+    Eigen::MatrixXd H, N, PI;
 
     Eigen::Matrix3d R = state_.getRotation();
     vector<pair<int,int> > remove_contacts;
@@ -606,13 +600,9 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
 
 
 // Corrects state using magnetometer measurements (Right Invariant)
-void InEKF::CorrectMagnetometer(const Eigen::Vector3d& measured_magnetic_field, const Eigen::Vector3d true_magnetic_field) {
-    // b_m_wb = Rwb^T * w_m_wb
-    Eigen::VectorXd Y; 
-    Eigen::VectorXd b;
-    Eigen::MatrixXd H;
-    Eigen::MatrixXd N;
-    Eigen::MatrixXd PI;
+void InEKF::CorrectMagnetometer(const Eigen::Vector3d& measured_magnetic_field, const Eigen::Vector3d& true_magnetic_field) {
+    Eigen::VectorXd Y, b;
+    Eigen::MatrixXd H, N, PI;
 
     // Get Rotation Estimate
     Eigen::Matrix3d R = state_.getRotation();
@@ -657,12 +647,9 @@ void InEKF::CorrectMagnetometer(const Eigen::Vector3d& measured_magnetic_field, 
 
 
 // Observation of absolute position - GPS (Left-Invariant Measurement)
-void InEKF::CorrectPosition(const Eigen::Vector3d& measured_position, const Eigen::Vector3d indices) {
-    Eigen::VectorXd Y; 
-    Eigen::VectorXd b;
-    Eigen::MatrixXd H;
-    Eigen::MatrixXd N;
-    Eigen::MatrixXd PI;
+void InEKF::CorrectPosition(const Eigen::Vector3d& measured_position, const Eigen::Vector3d& indices) {
+    Eigen::VectorXd Y, b;
+    Eigen::MatrixXd H, N, PI;
 
     // Fill out observation data
     int dimX = state_.dimX();
@@ -708,15 +695,12 @@ void InEKF::CorrectPosition(const Eigen::Vector3d& measured_position, const Eige
 
 
 // Observation of absolute z-position of contact points (Left-Invariant Measurement)
-void InEKF::CorrectContactPositions(const mapIntVector3d& measured_contact_positions, const Eigen::Vector3d indices) {
+void InEKF::CorrectContactPositions(const mapIntVector3d& measured_contact_positions, const Eigen::Vector3d& indices) {
 #if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_contacts_mutex_);
 #endif
-    Eigen::VectorXd Y;
-    Eigen::VectorXd b;
-    Eigen::MatrixXd H;
-    Eigen::MatrixXd N;
-    Eigen::MatrixXd PI;
+    Eigen::VectorXd Y, b;
+    Eigen::MatrixXd H, N, PI;
     
     // Loop over measurements
     for (mapIntVector3dIterator it=measured_contact_positions.begin(); it!=measured_contact_positions.end(); ++it) {

@@ -40,10 +40,11 @@ class Kinematics {
 class Landmark {
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-        Landmark(int id_in, Eigen::Vector3d position_in) : id(id_in), position(position_in) { }
+        Landmark(int id_in, Eigen::Vector3d position_in, Eigen::Matrix3d covariance_in) : id(id_in), position(position_in), covariance(covariance_in) { }
 
         int id;
         Eigen::Vector3d position;
+        Eigen::Matrix3d covariance;
 };
 
 typedef std::map<int,Eigen::Vector3d, std::less<int>, Eigen::aligned_allocator<std::pair<const int,Eigen::Vector3d> > > mapIntVector3d;
@@ -52,7 +53,6 @@ typedef std::vector<Landmark, Eigen::aligned_allocator<Landmark> > vectorLandmar
 typedef std::vector<Landmark, Eigen::aligned_allocator<Landmark> >::const_iterator vectorLandmarksIterator;
 typedef std::vector<Kinematics, Eigen::aligned_allocator<Kinematics> > vectorKinematics;
 typedef std::vector<Kinematics, Eigen::aligned_allocator<Kinematics> >::const_iterator vectorKinematicsIterator;
-
 
 class Observation {
 
@@ -95,11 +95,14 @@ class InEKF {
         void Propagate(const Eigen::Matrix<double,6,1>& m, double dt);
         void CorrectRightInvariant(const Observation& obs);
         void CorrectLeftInvariant(const Observation& obs);
+
+        // Right Invariant Measurements
         void CorrectLandmarks(const vectorLandmarks& measured_landmarks);
         void CorrectKinematics(const vectorKinematics& measured_kinematics);
-        void CorrectMagnetometer(const Eigen::Vector3d& measured_magnetic_field, const Eigen::Vector3d true_magnetic_field);
-        void CorrectPosition(const Eigen::Vector3d& measured_position, const Eigen::Vector3d indices);
-        void CorrectContactPositions(const mapIntVector3d& measured_contact_positions, const Eigen::Vector3d indices);
+        void CorrectMagnetometer(const Eigen::Vector3d& measured_magnetic_field, const Eigen::Vector3d& true_magnetic_field);
+        // Left Invariant Measurements
+        void CorrectPosition(const Eigen::Vector3d& measured_position, const Eigen::Vector3d& indices);
+        void CorrectContactPositions(const mapIntVector3d& measured_contact_positions, const Eigen::Vector3d& indices);
 
     private:
         RobotState state_;

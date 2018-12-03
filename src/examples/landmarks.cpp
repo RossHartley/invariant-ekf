@@ -59,7 +59,6 @@ int main() {
     noise_params.setAccelerometerNoise(0.1);
     noise_params.setGyroscopeBiasNoise(0.00001);
     noise_params.setAccelerometerBiasNoise(0.0001);
-    noise_params.setLandmarkNoise(0.1);
 
     // Initialize filter
     InEKF filter(initial_state, noise_params);
@@ -133,7 +132,8 @@ int main() {
                 p_bl << stoi98(measurement[i+1]), 
                         stoi98(measurement[i+2]), 
                         stoi98(measurement[i+3]);
-                Landmark landmark(id, p_bl);
+                Eigen::Matrix3d cov = 0.01*Eigen::Matrix3d::Identity();
+                Landmark landmark(id, p_bl, cov);
                 measured_landmarks.push_back(landmark); 
             }
 

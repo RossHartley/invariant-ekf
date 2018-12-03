@@ -97,7 +97,8 @@ class InEKF {
         void CorrectLeftInvariant(const Observation& obs);
         void CorrectLandmarks(const vectorLandmarks& measured_landmarks);
         void CorrectKinematics(const vectorKinematics& measured_kinematics);
-        void CorrectContactPosition(const mapIntVector3d& measured_contact_positions, const Eigen::Vector3d indices);
+        void CorrectPosition(const Eigen::Vector3d& measured_position, const Eigen::Vector3d indices);
+        void CorrectContactPositions(const mapIntVector3d& measured_contact_positions, const Eigen::Vector3d indices);
 
     private:
         RobotState state_;

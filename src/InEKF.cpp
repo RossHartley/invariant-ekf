@@ -605,8 +605,62 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
 }
 
 
+// Observation of absolute position - GPS (Left-Invariant Measurement)
+void InEKF::CorrectPosition(const Eigen::Vector3d& measured_position, const Eigen::Vector3d indices) {
+    Eigen::VectorXd Y; 
+    Eigen::VectorXd b;
+    Eigen::MatrixXd H;
+    Eigen::MatrixXd N;
+    Eigen::MatrixXd PI;
+
+
+        // Fill out observation data
+        int dimX = state_.dimX();
+        int dimTheta = state_.dimTheta();
+        int dimP = state_.dimP();
+        int startIndex;
+
+        // Fill out Y
+        Y.conservativeResize(dimX, Eigen::NoChange);
+        Y.segment(0,dimX) = Eigen::VectorXd::Zero(dimX);
+        Y.segment<3>(startIndex) = state_.getPosition();
+        if (indices(0)) { Y(0) = measured_position(0); } // w_p_wb (x)
+        if (indices(1)) { Y(1) = measured_position(1); } // w_p_wb (y)
+        if (indices(2)) { Y(2) = measured_position(2); } // w_p_wb (z)
+        Y(4) = 1;       
+
+        // Fill out b
+        b.conservativeResize(dimX, Eigen::NoChange);
+        b.segment(0,dimX) = Eigen::VectorXd::Zero(dimX);
+        b(4) = 1;       
+
+        // Fill out H
+        H.conservativeResize(3, dimP);
+        H.block(0,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
+        H.block<3,3>(0,6) = Eigen::Matrix3d::Identity(); 
+
+        // Fill out N
+        N.conservativeResize(3, 3);
+        N = 0.001*Eigen::Matrix3d::Identity();
+
+        // Fill out PI      
+        PI.conservativeResize(3, dimX);
+        PI.block(0,0,3,dimX) = Eigen::MatrixXd::Zero(3,dimX);
+        PI.block(0,0,3,3) = Eigen::Matrix3d::Identity();
+    
+
+    // Correct state using stacked observation
+    Observation obs(Y,b,H,N,PI);
+    if (!obs.empty()) {
+        this->CorrectLeftInvariant(obs);
+        cout << obs << endl;
+    }
+
+}
+
+
 // Observation of absolute z-position of contact points (Left-Invariant Measurement)
-void InEKF::CorrectContactPosition(const mapIntVector3d& measured_contact_positions, const Eigen::Vector3d indices) {
+void InEKF::CorrectContactPositions(const mapIntVector3d& measured_contact_positions, const Eigen::Vector3d indices) {
 #if INEKF_USE_MUTEX
     lock_guard<mutex> mlock(estimated_contacts_mutex_);
 #endif

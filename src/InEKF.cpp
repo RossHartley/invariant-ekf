@@ -253,164 +253,6 @@ void InEKF::CorrectLeftInvariant(const Observation& obs) {
 }   
 
 
-// Create Observation from vector of landmark measurements
-void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
-#if INEKF_USE_MUTEX
-    lock_guard<mutex> mlock(estimated_landmarks_mutex_);
-#endif
-    Eigen::VectorXd Y, b;
-    Eigen::MatrixXd H, N, PI;
-
-    Eigen::Matrix3d R = state_.getRotation();
-    vectorLandmarks new_landmarks;
-    vector<int> used_landmark_ids;
-    
-    for (vectorLandmarksIterator it=measured_landmarks.begin(); it!=measured_landmarks.end(); ++it) {
-        // Detect and skip if an ID is not unique (this would cause singularity issues in InEKF::Correct)
-        if (find(used_landmark_ids.begin(), used_landmark_ids.end(), it->id) != used_landmark_ids.end()) { 
-            cout << "Duplicate landmark ID detected! Skipping measurement.\n";
-            continue; 
-        } else { used_landmark_ids.push_back(it->id); }
-
-        // See if we can find id in prior_landmarks or estimated_landmarks
-        mapIntVector3dIterator it_prior = prior_landmarks_.find(it->id);
-        map<int,int>::iterator it_estimated = estimated_landmarks_.find(it->id);
-        if (it_prior!=prior_landmarks_.end()) {
-            // Found in prior landmark set
-            int dimX = state_.dimX();
-            int dimTheta = state_.dimTheta();
-            int dimP = state_.dimP();
-            int startIndex;
-
-            // Fill out Y
-            startIndex = Y.rows();
-            Y.conservativeResize(startIndex+dimX, Eigen::NoChange);
-            Y.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
-            Y.segment(startIndex,3) = it->position; // p_bl
-            Y(startIndex+4) = 1; 
-
-            // Fill out b
-            startIndex = b.rows();
-            b.conservativeResize(startIndex+dimX, Eigen::NoChange);
-            b.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
-            b.segment(startIndex,3) = it_prior->second; // p_wl
-            b(startIndex+4) = 1;       
-
-            // Fill out H
-            startIndex = H.rows();
-            H.conservativeResize(startIndex+3, dimP);
-            H.block(startIndex,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
-            H.block(startIndex,0,3,3) = skew(it_prior->second); // skew(p_wl)
-            H.block(startIndex,6,3,3) = -Eigen::Matrix3d::Identity(); // -I
-
-            // Fill out N
-            startIndex = N.rows();
-            N.conservativeResize(startIndex+3, startIndex+3);
-            N.block(startIndex,0,3,startIndex) = Eigen::MatrixXd::Zero(3,startIndex);
-            N.block(0,startIndex,startIndex,3) = Eigen::MatrixXd::Zero(startIndex,3);
-            N.block(startIndex,startIndex,3,3) = R * it->covariance * R.transpose();
-
-            // Fill out PI      
-            startIndex = PI.rows();
-            int startIndex2 = PI.cols();
-            PI.conservativeResize(startIndex+3, startIndex2+dimX);
-            PI.block(startIndex,0,3,startIndex2) = Eigen::MatrixXd::Zero(3,startIndex2);
-            PI.block(0,startIndex2,startIndex,dimX) = Eigen::MatrixXd::Zero(startIndex,dimX);
-            PI.block(startIndex,startIndex2,3,dimX) = Eigen::MatrixXd::Zero(3,dimX);
-            PI.block(startIndex,startIndex2,3,3) = Eigen::Matrix3d::Identity();
-
-        } else if (it_estimated!=estimated_landmarks_.end()) {;
-            // Found in estimated landmark set
-            int dimX = state_.dimX();
-            int dimTheta = state_.dimTheta();
-            int dimP = state_.dimP();
-            int startIndex;
-
-            // Fill out Y
-            startIndex = Y.rows();
-            Y.conservativeResize(startIndex+dimX, Eigen::NoChange);
-            Y.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
-            Y.segment(startIndex,3) = it->position; // p_bl
-            Y(startIndex+4) = 1; 
-            Y(startIndex+it_estimated->second) = -1;       
-
-            // Fill out b
-            startIndex = b.rows();
-            b.conservativeResize(startIndex+dimX, Eigen::NoChange);
-            b.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
-            b(startIndex+4) = 1;       
-            b(startIndex+it_estimated->second) = -1;       
-
-            // Fill out H
-            startIndex = H.rows();
-            H.conservativeResize(startIndex+3, dimP);
-            H.block(startIndex,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
-            H.block(startIndex,6,3,3) = -Eigen::Matrix3d::Identity(); // -I
-            H.block(startIndex,3*it_estimated->second-dimTheta,3,3) = Eigen::Matrix3d::Identity(); // I
-
-            // Fill out N
-            startIndex = N.rows();
-            N.conservativeResize(startIndex+3, startIndex+3);
-            N.block(startIndex,0,3,startIndex) = Eigen::MatrixXd::Zero(3,startIndex);
-            N.block(0,startIndex,startIndex,3) = Eigen::MatrixXd::Zero(startIndex,3);
-            N.block(startIndex,startIndex,3,3) = R * it->covariance * R.transpose();
-
-            // Fill out PI      
-            startIndex = PI.rows();
-            int startIndex2 = PI.cols();
-            PI.conservativeResize(startIndex+3, startIndex2+dimX);
-            PI.block(startIndex,0,3,startIndex2) = Eigen::MatrixXd::Zero(3,startIndex2);
-            PI.block(0,startIndex2,startIndex,dimX) = Eigen::MatrixXd::Zero(startIndex,dimX);
-            PI.block(startIndex,startIndex2,3,dimX) = Eigen::MatrixXd::Zero(3,dimX);
-            PI.block(startIndex,startIndex2,3,3) = Eigen::Matrix3d::Identity();
-
-
-        } else {
-            // First time landmark as been detected (add to list for later state augmentation)
-            new_landmarks.push_back(*it);
-        }
-    }
-
-    // Correct state using stacked observation
-    Observation obs(Y,b,H,N,PI);
-    if (!obs.empty()) {
-        this->CorrectRightInvariant(obs);
-    }
-
-    // Augment state with newly detected landmarks
-    if (new_landmarks.size() > 0) {
-        Eigen::MatrixXd X_aug = state_.getX(); 
-        Eigen::MatrixXd P_aug = state_.getP();
-        Eigen::Vector3d p = state_.getPosition();
-        for (vectorLandmarksIterator it=new_landmarks.begin(); it!=new_landmarks.end(); ++it) {
-            // Initialize new landmark mean
-            int startIndex = X_aug.rows();
-            X_aug.conservativeResize(startIndex+1, startIndex+1);
-            X_aug.block(startIndex,0,1,startIndex) = Eigen::MatrixXd::Zero(1,startIndex);
-            X_aug.block(0,startIndex,startIndex,1) = Eigen::MatrixXd::Zero(startIndex,1);
-            X_aug(startIndex, startIndex) = 1;
-            X_aug.block(0,startIndex,3,1) = p + R*it->position;
-
-            // Initialize new landmark covariance - TODO:speed up
-            Eigen::MatrixXd F = Eigen::MatrixXd::Zero(state_.dimP()+3,state_.dimP()); 
-            F.block(0,0,state_.dimP()-state_.dimTheta(),state_.dimP()-state_.dimTheta()) = Eigen::MatrixXd::Identity(state_.dimP()-state_.dimTheta(),state_.dimP()-state_.dimTheta()); // for old X
-            F.block(state_.dimP()-state_.dimTheta(),6,3,3) = Eigen::Matrix3d::Identity(); // for new landmark
-            F.block(state_.dimP()-state_.dimTheta()+3,state_.dimP()-state_.dimTheta(),state_.dimTheta(),state_.dimTheta()) = Eigen::MatrixXd::Identity(state_.dimTheta(),state_.dimTheta()); // for theta
-            Eigen::MatrixXd G = Eigen::MatrixXd::Zero(F.rows(),3);
-            G.block(G.rows()-state_.dimTheta()-3,0,3,3) = R;
-            P_aug = (F*P_aug*F.transpose() + G*it->covariance*G.transpose()).eval();
-
-            // Update state and covariance
-            state_.setX(X_aug);
-            state_.setP(P_aug);
-
-            // Add to list of estimated landmarks
-            estimated_landmarks_.insert(pair<int,int> (it->id, startIndex));
-        }
-    }
-    return;    
-}
-
 // Correct state using kinematics measured between imu and contact point
 void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
 #if INEKF_USE_MUTEX
@@ -578,6 +420,164 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
     return; 
 }
 
+
+// Create Observation from vector of landmark measurements
+void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
+#if INEKF_USE_MUTEX
+    lock_guard<mutex> mlock(estimated_landmarks_mutex_);
+#endif
+    Eigen::VectorXd Y, b;
+    Eigen::MatrixXd H, N, PI;
+
+    Eigen::Matrix3d R = state_.getRotation();
+    vectorLandmarks new_landmarks;
+    vector<int> used_landmark_ids;
+    
+    for (vectorLandmarksIterator it=measured_landmarks.begin(); it!=measured_landmarks.end(); ++it) {
+        // Detect and skip if an ID is not unique (this would cause singularity issues in InEKF::Correct)
+        if (find(used_landmark_ids.begin(), used_landmark_ids.end(), it->id) != used_landmark_ids.end()) { 
+            cout << "Duplicate landmark ID detected! Skipping measurement.\n";
+            continue; 
+        } else { used_landmark_ids.push_back(it->id); }
+
+        // See if we can find id in prior_landmarks or estimated_landmarks
+        mapIntVector3dIterator it_prior = prior_landmarks_.find(it->id);
+        map<int,int>::iterator it_estimated = estimated_landmarks_.find(it->id);
+        if (it_prior!=prior_landmarks_.end()) {
+            // Found in prior landmark set
+            int dimX = state_.dimX();
+            int dimTheta = state_.dimTheta();
+            int dimP = state_.dimP();
+            int startIndex;
+
+            // Fill out Y
+            startIndex = Y.rows();
+            Y.conservativeResize(startIndex+dimX, Eigen::NoChange);
+            Y.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
+            Y.segment(startIndex,3) = it->position; // p_bl
+            Y(startIndex+4) = 1; 
+
+            // Fill out b
+            startIndex = b.rows();
+            b.conservativeResize(startIndex+dimX, Eigen::NoChange);
+            b.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
+            b.segment(startIndex,3) = it_prior->second; // p_wl
+            b(startIndex+4) = 1;       
+
+            // Fill out H
+            startIndex = H.rows();
+            H.conservativeResize(startIndex+3, dimP);
+            H.block(startIndex,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
+            H.block(startIndex,0,3,3) = skew(it_prior->second); // skew(p_wl)
+            H.block(startIndex,6,3,3) = -Eigen::Matrix3d::Identity(); // -I
+
+            // Fill out N
+            startIndex = N.rows();
+            N.conservativeResize(startIndex+3, startIndex+3);
+            N.block(startIndex,0,3,startIndex) = Eigen::MatrixXd::Zero(3,startIndex);
+            N.block(0,startIndex,startIndex,3) = Eigen::MatrixXd::Zero(startIndex,3);
+            N.block(startIndex,startIndex,3,3) = R * it->covariance * R.transpose();
+
+            // Fill out PI      
+            startIndex = PI.rows();
+            int startIndex2 = PI.cols();
+            PI.conservativeResize(startIndex+3, startIndex2+dimX);
+            PI.block(startIndex,0,3,startIndex2) = Eigen::MatrixXd::Zero(3,startIndex2);
+            PI.block(0,startIndex2,startIndex,dimX) = Eigen::MatrixXd::Zero(startIndex,dimX);
+            PI.block(startIndex,startIndex2,3,dimX) = Eigen::MatrixXd::Zero(3,dimX);
+            PI.block(startIndex,startIndex2,3,3) = Eigen::Matrix3d::Identity();
+
+        } else if (it_estimated!=estimated_landmarks_.end()) {;
+            // Found in estimated landmark set
+            int dimX = state_.dimX();
+            int dimTheta = state_.dimTheta();
+            int dimP = state_.dimP();
+            int startIndex;
+
+            // Fill out Y
+            startIndex = Y.rows();
+            Y.conservativeResize(startIndex+dimX, Eigen::NoChange);
+            Y.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
+            Y.segment(startIndex,3) = it->position; // p_bl
+            Y(startIndex+4) = 1; 
+            Y(startIndex+it_estimated->second) = -1;       
+
+            // Fill out b
+            startIndex = b.rows();
+            b.conservativeResize(startIndex+dimX, Eigen::NoChange);
+            b.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
+            b(startIndex+4) = 1;       
+            b(startIndex+it_estimated->second) = -1;       
+
+            // Fill out H
+            startIndex = H.rows();
+            H.conservativeResize(startIndex+3, dimP);
+            H.block(startIndex,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
+            H.block(startIndex,6,3,3) = -Eigen::Matrix3d::Identity(); // -I
+            H.block(startIndex,3*it_estimated->second-dimTheta,3,3) = Eigen::Matrix3d::Identity(); // I
+
+            // Fill out N
+            startIndex = N.rows();
+            N.conservativeResize(startIndex+3, startIndex+3);
+            N.block(startIndex,0,3,startIndex) = Eigen::MatrixXd::Zero(3,startIndex);
+            N.block(0,startIndex,startIndex,3) = Eigen::MatrixXd::Zero(startIndex,3);
+            N.block(startIndex,startIndex,3,3) = R * it->covariance * R.transpose();
+
+            // Fill out PI      
+            startIndex = PI.rows();
+            int startIndex2 = PI.cols();
+            PI.conservativeResize(startIndex+3, startIndex2+dimX);
+            PI.block(startIndex,0,3,startIndex2) = Eigen::MatrixXd::Zero(3,startIndex2);
+            PI.block(0,startIndex2,startIndex,dimX) = Eigen::MatrixXd::Zero(startIndex,dimX);
+            PI.block(startIndex,startIndex2,3,dimX) = Eigen::MatrixXd::Zero(3,dimX);
+            PI.block(startIndex,startIndex2,3,3) = Eigen::Matrix3d::Identity();
+
+
+        } else {
+            // First time landmark as been detected (add to list for later state augmentation)
+            new_landmarks.push_back(*it);
+        }
+    }
+
+    // Correct state using stacked observation
+    Observation obs(Y,b,H,N,PI);
+    if (!obs.empty()) {
+        this->CorrectRightInvariant(obs);
+    }
+
+    // Augment state with newly detected landmarks
+    if (new_landmarks.size() > 0) {
+        Eigen::MatrixXd X_aug = state_.getX(); 
+        Eigen::MatrixXd P_aug = state_.getP();
+        Eigen::Vector3d p = state_.getPosition();
+        for (vectorLandmarksIterator it=new_landmarks.begin(); it!=new_landmarks.end(); ++it) {
+            // Initialize new landmark mean
+            int startIndex = X_aug.rows();
+            X_aug.conservativeResize(startIndex+1, startIndex+1);
+            X_aug.block(startIndex,0,1,startIndex) = Eigen::MatrixXd::Zero(1,startIndex);
+            X_aug.block(0,startIndex,startIndex,1) = Eigen::MatrixXd::Zero(startIndex,1);
+            X_aug(startIndex, startIndex) = 1;
+            X_aug.block(0,startIndex,3,1) = p + R*it->position;
+
+            // Initialize new landmark covariance - TODO:speed up
+            Eigen::MatrixXd F = Eigen::MatrixXd::Zero(state_.dimP()+3,state_.dimP()); 
+            F.block(0,0,state_.dimP()-state_.dimTheta(),state_.dimP()-state_.dimTheta()) = Eigen::MatrixXd::Identity(state_.dimP()-state_.dimTheta(),state_.dimP()-state_.dimTheta()); // for old X
+            F.block(state_.dimP()-state_.dimTheta(),6,3,3) = Eigen::Matrix3d::Identity(); // for new landmark
+            F.block(state_.dimP()-state_.dimTheta()+3,state_.dimP()-state_.dimTheta(),state_.dimTheta(),state_.dimTheta()) = Eigen::MatrixXd::Identity(state_.dimTheta(),state_.dimTheta()); // for theta
+            Eigen::MatrixXd G = Eigen::MatrixXd::Zero(F.rows(),3);
+            G.block(G.rows()-state_.dimTheta()-3,0,3,3) = R;
+            P_aug = (F*P_aug*F.transpose() + G*it->covariance*G.transpose()).eval();
+
+            // Update state and covariance
+            state_.setX(X_aug);
+            state_.setP(P_aug);
+
+            // Add to list of estimated landmarks
+            estimated_landmarks_.insert(pair<int,int> (it->id, startIndex));
+        }
+    }
+    return;    
+}
 
 // Corrects state using magnetometer measurements (Right Invariant)
 void InEKF::CorrectMagnetometer(const Eigen::Vector3d& measured_magnetic_field, const Eigen::Vector3d& true_magnetic_field) {

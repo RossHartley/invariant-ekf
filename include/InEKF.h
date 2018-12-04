@@ -60,8 +60,8 @@ class InEKF {
         void Propagate(const Eigen::Matrix<double,6,1>& m, double dt);
 
         // Right Invariant Measurements
-        void CorrectLandmarks(const vectorLandmarks& measured_landmarks);
         void CorrectKinematics(const vectorKinematics& measured_kinematics);
+        void CorrectLandmarks(const vectorLandmarks& measured_landmarks);
         void CorrectMagnetometer(const Eigen::Vector3d& measured_magnetic_field, const Eigen::Vector3d& true_magnetic_field);
 
         // Left Invariant Measurements
@@ -72,14 +72,16 @@ class InEKF {
         RobotState state_;
         NoiseParams noise_params_;
         const Eigen::Vector3d g_; // Gravity
-        mapIntVector3d prior_landmarks_;
-        std::map<int,int> estimated_landmarks_;
         std::map<int,bool> contacts_;
         std::map<int,int> estimated_contact_positions_;
+        mapIntVector3d prior_landmarks_;
+        std::map<int,int> estimated_landmarks_;
+
 #if INEKF_USE_MUTEX
         std::mutex estimated_contacts_mutex_;
         std::mutex estimated_landmarks_mutex_;
 #endif
+
         // Corrects state using invariant observation models
         void CorrectRightInvariant(const Observation& obs);
         void CorrectLeftInvariant(const Observation& obs);

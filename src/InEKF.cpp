@@ -42,56 +42,31 @@ void InEKF::clear() {
 }
 
 // Return robot's current state
-RobotState InEKF::getState() const { 
-    return state_; 
-}
+RobotState InEKF::getState() const { return state_; }
 
 // Sets the robot's current state
-void InEKF::setState(RobotState state) { 
-    state_ = state;
-}
+void InEKF::setState(RobotState state) { state_ = state; }
 
 // Return noise params
-NoiseParams InEKF::getNoiseParams() const { 
-    return noise_params_; 
-}
+NoiseParams InEKF::getNoiseParams() const { return noise_params_; }
 
 // Sets the filter's noise parameters
-void InEKF::setNoiseParams(NoiseParams params) { 
-    noise_params_ = params; 
-}
+void InEKF::setNoiseParams(NoiseParams params) { noise_params_ = params; }
 
 // Return filter's prior (static) landmarks
-mapIntVector3d InEKF::getPriorLandmarks() const { 
-    return prior_landmarks_; 
-}
+mapIntVector3d InEKF::getPriorLandmarks() const { return prior_landmarks_; }
 
 // Set the filter's prior (static) landmarks
-void InEKF::setPriorLandmarks(const mapIntVector3d& prior_landmarks) { 
-    prior_landmarks_ = prior_landmarks; 
-}
+void InEKF::setPriorLandmarks(const mapIntVector3d& prior_landmarks) { prior_landmarks_ = prior_landmarks; }
 
 // Return filter's estimated landmarks
-map<int,int> InEKF::getEstimatedLandmarks() const { 
-#if INEKF_USE_MUTEX
-    lock_guard<mutex> mlock(estimated_landmarks_mutex_);
-#endif
-    return estimated_landmarks_; 
-}
+map<int,int> InEKF::getEstimatedLandmarks() const { return estimated_landmarks_; }
 
 // Return filter's estimated landmarks
-map<int,int> InEKF::getEstimatedContactPositions() const { 
-#if INEKF_USE_MUTEX
-    lock_guard<mutex> mlock(estimated_contacts_mutex_);
-#endif
-    return estimated_contact_positions_; 
-}
+map<int,int> InEKF::getEstimatedContactPositions() const { return estimated_contact_positions_; }
 
 // Set the filter's contact state
 void InEKF::setContacts(vector<pair<int,bool> > contacts) {
-#if INEKF_USE_MUTEX
-    lock_guard<mutex> mlock(estimated_contacts_mutex_);
-#endif
     // Insert new measured contact states
     for (vector<pair<int,bool> >::iterator it=contacts.begin(); it!=contacts.end(); ++it) {
         pair<map<int,bool>::iterator,bool> ret = contacts_.insert(*it);
@@ -104,12 +79,7 @@ void InEKF::setContacts(vector<pair<int,bool> > contacts) {
 }
 
 // Return the filter's contact state
-std::map<int,bool> InEKF::getContacts() const {
-#if INEKF_USE_MUTEX
-    lock_guard<mutex> mlock(estimated_contacts_mutex_);
-#endif
-    return contacts_; 
-}
+std::map<int,bool> InEKF::getContacts() const { return contacts_; }
 
 
 // InEKF Propagation - Inertial Data
@@ -255,9 +225,6 @@ void InEKF::CorrectLeftInvariant(const Observation& obs) {
 
 // Correct state using kinematics measured between imu and contact point
 void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
-#if INEKF_USE_MUTEX
-    lock_guard<mutex> mlock(estimated_contacts_mutex_);
-#endif
     Eigen::VectorXd Y, b;
     Eigen::MatrixXd H, N, PI;
 
@@ -423,9 +390,6 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
 
 // Create Observation from vector of landmark measurements
 void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
-#if INEKF_USE_MUTEX
-    lock_guard<mutex> mlock(estimated_landmarks_mutex_);
-#endif
     Eigen::VectorXd Y, b;
     Eigen::MatrixXd H, N, PI;
 
@@ -676,9 +640,6 @@ void InEKF::CorrectPosition(const Eigen::Vector3d& measured_position, const Eige
 
 // Observation of absolute z-position of contact points (Left-Invariant Measurement)
 void InEKF::CorrectContactPositions(const mapIntVector3d& measured_contact_positions, const Eigen::Vector3d& indices) {
-#if INEKF_USE_MUTEX
-    lock_guard<mutex> mlock(estimated_contacts_mutex_);
-#endif
     Eigen::VectorXd Y, b;
     Eigen::MatrixXd H, N, PI;
     
@@ -701,7 +662,7 @@ void InEKF::CorrectContactPositions(const mapIntVector3d& measured_contact_posit
         Y.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
         Eigen::MatrixXd X = state_.getX();
         Y.segment<3>(startIndex) = X.block<3,1>(0,it_estimated->second);
-        if (indices(0)) { Y(startIndex) = it->second(0); }   // w_p_wc (x)
+        if (indices(0)) { Y(startIndex)   = it->second(0); } // w_p_wc (x)
         if (indices(1)) { Y(startIndex+1) = it->second(1); } // w_p_wc (y)
         if (indices(2)) { Y(startIndex+2) = it->second(2); } // w_p_wc (z)
         Y(startIndex+it_estimated->second) = 1;       

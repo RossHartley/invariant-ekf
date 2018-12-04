@@ -17,9 +17,6 @@
 #include <iostream>
 #include <vector>
 #include <map>
-#if INEKF_USE_MUTEX
-#include <mutex>
-#endif
 #include <algorithm>
 #include "RobotState.h"
 #include "NoiseParams.h"
@@ -76,11 +73,6 @@ class InEKF {
         std::map<int,int> estimated_contact_positions_;
         mapIntVector3d prior_landmarks_;
         std::map<int,int> estimated_landmarks_;
-
-#if INEKF_USE_MUTEX
-        std::mutex estimated_contacts_mutex_;
-        std::mutex estimated_landmarks_mutex_;
-#endif
 
         // Corrects state using invariant observation models
         void CorrectRightInvariant(const Observation& obs);

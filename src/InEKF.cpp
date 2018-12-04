@@ -19,26 +19,6 @@ using namespace std;
 
 void removeRowAndColumn(Eigen::MatrixXd& M, int index);
 
-// ------------ Observation -------------
-// Default constructor
-Observation::Observation(Eigen::VectorXd& Y, Eigen::VectorXd& b, Eigen::MatrixXd& H, Eigen::MatrixXd& N, Eigen::MatrixXd& PI) :
-    Y(Y), b(b), H(H), N(N), PI(PI) {}
-
-// Check if empty
-bool Observation::empty() { return Y.rows() == 0; }
-
-ostream& operator<<(ostream& os, const Observation& o) {
-    os << "---------- Observation ------------" << endl;
-    os << "Y:\n" << o.Y << endl << endl;
-    os << "b:\n" << o.b << endl << endl;
-    os << "H:\n" << o.H << endl << endl;
-    os << "N:\n" << o.N << endl << endl;
-    os << "PI:\n" << o.PI << endl;
-    os << "-----------------------------------";
-    return os;  
-} 
-
-// ------------ InEKF -------------
 // Default constructor
 InEKF::InEKF() : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()){}
 

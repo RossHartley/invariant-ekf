@@ -78,6 +78,7 @@ add_library(inekf SHARED
     "${PROJECT_SOURCE_DIR}/src/RobotState.cpp"
     "${PROJECT_SOURCE_DIR}/src/LieGroup.cpp"
     "${PROJECT_SOURCE_DIR}/src/NoiseParams.cpp"
+    "${PROJECT_SOURCE_DIR}/src/Observations.cpp"
 )
 set_target_properties(inekf PROPERTIES LIBRARY_OUTPUT_NAME inekf)
 

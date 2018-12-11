@@ -42,16 +42,18 @@ class InEKF {
         // Getters
         RobotState getState() const;
         NoiseParams getNoiseParams() const;
-        mapIntVector3d getPriorLandmarks() const;
-        std::map<int,int> getEstimatedLandmarks() const;
         std::map<int,bool> getContacts() const;
         std::map<int,int> getEstimatedContactPositions() const;
+        mapIntVector3d getPriorLandmarks() const;
+        std::map<int,int> getEstimatedLandmarks() const;
+        Eigen::Vector3d getMagneticField() const;
 
         // Setters
         void setState(RobotState state);
         void setNoiseParams(NoiseParams params);
-        void setPriorLandmarks(const mapIntVector3d& prior_landmarks);
         void setContacts(std::vector<std::pair<int,bool> > contacts);
+        void setPriorLandmarks(const mapIntVector3d& prior_landmarks);
+        void setMagneticField(Eigen::Vector3d& true_magnetic_field);
 
         // Inertial/Contact propagation function
         void Propagate(const Eigen::Matrix<double,6,1>& m, double dt);
@@ -59,11 +61,11 @@ class InEKF {
         // Right Invariant Measurements
         void CorrectKinematics(const vectorKinematics& measured_kinematics);
         void CorrectLandmarks(const vectorLandmarks& measured_landmarks);
-        void CorrectMagnetometer(const Eigen::Vector3d& measured_magnetic_field, const Eigen::Vector3d& true_magnetic_field);
+        void CorrectMagnetometer(const Eigen::Vector3d& measured_magnetic_field, const Eigen::Matrix3d& covariance);
 
         // Left Invariant Measurements
-        void CorrectPosition(const Eigen::Vector3d& measured_position, const Eigen::Vector3d& indices);
-        void CorrectContactPositions(const mapIntVector3d& measured_contact_positions, const Eigen::Vector3d& indices);
+        void CorrectPosition(const Eigen::Vector3d& measured_position, const Eigen::Matrix3d& covariance, const Eigen::Vector3d& indices);
+        void CorrectContactPosition(const int id, const Eigen::Vector3d& measured_contact_position, const Eigen::Matrix3d& covariance, const Eigen::Vector3d& indices);
 
     private:
         RobotState state_;
@@ -73,6 +75,7 @@ class InEKF {
         std::map<int,int> estimated_contact_positions_;
         mapIntVector3d prior_landmarks_;
         std::map<int,int> estimated_landmarks_;
+        Eigen::Vector3d magnetic_field_;
 
         // Corrects state using invariant observation models
         void CorrectRightInvariant(const Observation& obs);

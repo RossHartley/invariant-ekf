@@ -20,16 +20,16 @@ using namespace std;
 void removeRowAndColumn(Eigen::MatrixXd& M, int index);
 
 // Default constructor
-InEKF::InEKF() : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()){}
+InEKF::InEKF() : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), magnetic_field_((Eigen::VectorXd(3) << 0,0,0).finished()) {}
 
 // Constructor with noise params
-InEKF::InEKF(NoiseParams params) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), noise_params_(params) {}
+InEKF::InEKF(NoiseParams params) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), magnetic_field_((Eigen::VectorXd(3) << 0,0,0).finished()), noise_params_(params) {}
 
 // Constructor with initial state
-InEKF::InEKF(RobotState state) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), state_(state) {}
+InEKF::InEKF(RobotState state) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), magnetic_field_((Eigen::VectorXd(3) << 0,0,0).finished()), state_(state) {}
 
 // Constructor with initial state and noise params
-InEKF::InEKF(RobotState state, NoiseParams params) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), state_(state), noise_params_(params) {}
+InEKF::InEKF(RobotState state, NoiseParams params) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), magnetic_field_((Eigen::VectorXd(3) << 0,0,0).finished()), state_(state), noise_params_(params) {}
 
 // Clear all data in the filter
 void InEKF::clear() {
@@ -81,6 +81,11 @@ void InEKF::setContacts(vector<pair<int,bool> > contacts) {
 // Return the filter's contact state
 std::map<int,bool> InEKF::getContacts() const { return contacts_; }
 
+// Set the true magnetic field
+void InEKF::setMagneticField(Eigen::Vector3d& true_magnetic_field) { magnetic_field_ = true_magnetic_field; }
+
+// Get the true magnetic field
+Eigen::Vector3d InEKF::getMagneticField() const { return magnetic_field_; }
 
 // InEKF Propagation - Inertial Data
 void InEKF::Propagate(const Eigen::Matrix<double,6,1>& m, double dt) {
@@ -195,6 +200,8 @@ void InEKF::CorrectLeftInvariant(const Observation& obs) {
 
     Eigen::MatrixXd PHT = P * obs.H.transpose();
     Eigen::MatrixXd S = obs.H * PHT + obs.N;
+    // std::cout << "obs.H * PHT:\n" << obs.H * PHT << std::endl;
+    // std::cout << "S:\n" << S << std::endl;
     Eigen::MatrixXd K = PHT * S.inverse();
 
     // Copy X along the diagonals if more than one measurement
@@ -544,7 +551,7 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
 }
 
 // Corrects state using magnetometer measurements (Right Invariant)
-void InEKF::CorrectMagnetometer(const Eigen::Vector3d& measured_magnetic_field, const Eigen::Vector3d& true_magnetic_field) {
+void InEKF::CorrectMagnetometer(const Eigen::Vector3d& measured_magnetic_field, const Eigen::Matrix3d& covariance) {
     Eigen::VectorXd Y, b;
     Eigen::MatrixXd H, N, PI;
 
@@ -564,16 +571,16 @@ void InEKF::CorrectMagnetometer(const Eigen::Vector3d& measured_magnetic_field, 
     // Fill out b
     b.conservativeResize(dimX, Eigen::NoChange);
     b.segment(0,dimX) = Eigen::VectorXd::Zero(dimX);
-    b.segment<3>(0) = true_magnetic_field;
+    b.segment<3>(0) = magnetic_field_;
 
     // Fill out H
     H.conservativeResize(3, dimP);
     H.block(0,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
-    H.block<3,3>(0,0) = skew(true_magnetic_field); 
+    H.block<3,3>(0,0) = skew(magnetic_field_); 
 
     // Fill out N
     N.conservativeResize(3, 3);
-    N = R * 0.001*Eigen::Matrix3d::Identity() * R.transpose();
+    N = R * covariance * R.transpose();
 
     // Fill out PI      
     PI.conservativeResize(3, dimX);
@@ -591,7 +598,7 @@ void InEKF::CorrectMagnetometer(const Eigen::Vector3d& measured_magnetic_field, 
 
 
 // Observation of absolute position - GPS (Left-Invariant Measurement)
-void InEKF::CorrectPosition(const Eigen::Vector3d& measured_position, const Eigen::Vector3d& indices) {
+void InEKF::CorrectPosition(const Eigen::Vector3d& measured_position, const Eigen::Matrix3d& covariance, const Eigen::Vector3d& indices) {
     Eigen::VectorXd Y, b;
     Eigen::MatrixXd H, N, PI;
 
@@ -603,10 +610,7 @@ void InEKF::CorrectPosition(const Eigen::Vector3d& measured_position, const Eige
     // Fill out Y
     Y.conservativeResize(dimX, Eigen::NoChange);
     Y.segment(0,dimX) = Eigen::VectorXd::Zero(dimX);
-    Y.segment<3>(0) = state_.getPosition();
-    if (indices(0)) { Y(0) = measured_position(0); } // w_p_wb (x)
-    if (indices(1)) { Y(1) = measured_position(1); } // w_p_wb (y)
-    if (indices(2)) { Y(2) = measured_position(2); } // w_p_wb (z)
+    Y.segment<3>(0) = measured_position;
     Y(4) = 1;       
 
     // Fill out b
@@ -621,13 +625,40 @@ void InEKF::CorrectPosition(const Eigen::Vector3d& measured_position, const Eige
 
     // Fill out N
     N.conservativeResize(3, 3);
-    N = 0.001*Eigen::Matrix3d::Identity();
+    N = covariance;
 
     // Fill out PI      
     PI.conservativeResize(3, dimX);
     PI.block(0,0,3,dimX) = Eigen::MatrixXd::Zero(3,dimX);
     PI.block(0,0,3,3) = Eigen::Matrix3d::Identity();
-    
+
+    // Modify measurement based on chosen indices
+    const double HIGH_UNCERTAINTY = 1e6;
+    Eigen::Vector3d p = state_.getPosition();
+    if (!indices(0)) { 
+        Y(0) = p(0);
+        N(0,0) = HIGH_UNCERTAINTY;
+        N(0,1) = 0;
+        N(0,2) = 0;
+        N(1,0) = 0;
+        N(2,0) = 0;
+        } 
+    if (!indices(1)) { 
+        Y(1) = p(1);
+        N(1,0) = 0;
+        N(1,1) = HIGH_UNCERTAINTY;
+        N(1,2) = 0;
+        N(0,1) = 0;
+        N(2,1) = 0;
+        } 
+    if (!indices(2)) { 
+        Y(2) = p(2);
+        N(2,0) = 0;
+        N(2,1) = 0;
+        N(2,2) = HIGH_UNCERTAINTY;
+        N(0,2) = 0;
+        N(1,2) = 0;
+        } 
 
     // Correct state using stacked observation
     Observation obs(Y,b,H,N,PI);
@@ -639,17 +670,13 @@ void InEKF::CorrectPosition(const Eigen::Vector3d& measured_position, const Eige
 
 
 // Observation of absolute z-position of contact points (Left-Invariant Measurement)
-void InEKF::CorrectContactPositions(const mapIntVector3d& measured_contact_positions, const Eigen::Vector3d& indices) {
+void InEKF::CorrectContactPosition(const int id, const Eigen::Vector3d& measured_contact_position, const Eigen::Matrix3d& covariance, const Eigen::Vector3d& indices) {
     Eigen::VectorXd Y, b;
     Eigen::MatrixXd H, N, PI;
     
-    // Loop over measurements
-    for (mapIntVector3dIterator it=measured_contact_positions.begin(); it!=measured_contact_positions.end(); ++it) {
-
-        // See if we can find id estimated_contact_positions
-        map<int,int>::iterator it_estimated = estimated_contact_positions_.find(it->first);
-        if (it_estimated==estimated_contact_positions_.end()) { continue; };
-
+    // See if we can find id estimated_contact_positions
+    map<int,int>::iterator it_estimated = estimated_contact_positions_.find(id);
+    if (it_estimated!=estimated_contact_positions_.end()) { 
         // Fill out observation data
         int dimX = state_.dimX();
         int dimTheta = state_.dimTheta();
@@ -657,43 +684,57 @@ void InEKF::CorrectContactPositions(const mapIntVector3d& measured_contact_posit
         int startIndex;
 
         // Fill out Y
-        startIndex = Y.rows();
-        Y.conservativeResize(startIndex+dimX, Eigen::NoChange);
-        Y.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
-        Eigen::MatrixXd X = state_.getX();
-        Y.segment<3>(startIndex) = X.block<3,1>(0,it_estimated->second);
-        if (indices(0)) { Y(startIndex)   = it->second(0); } // w_p_wc (x)
-        if (indices(1)) { Y(startIndex+1) = it->second(1); } // w_p_wc (y)
-        if (indices(2)) { Y(startIndex+2) = it->second(2); } // w_p_wc (z)
-        Y(startIndex+it_estimated->second) = 1;       
+        Y.conservativeResize(dimX, Eigen::NoChange);
+        Y.segment(0,dimX) = Eigen::VectorXd::Zero(dimX);
+        Y.segment<3>(0) = measured_contact_position;
+        Y(it_estimated->second) = 1;       
 
         // Fill out b
-        startIndex = b.rows();
-        b.conservativeResize(startIndex+dimX, Eigen::NoChange);
-        b.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
-        b(startIndex+it_estimated->second) = 1;       
+        b.conservativeResize(dimX, Eigen::NoChange);
+        b.segment(0,dimX) = Eigen::VectorXd::Zero(dimX);
+        b(it_estimated->second) = 1;       
 
         // Fill out H
-        startIndex = H.rows();
-        H.conservativeResize(startIndex+3, dimP);
-        H.block(startIndex,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
-        H.block<3,3>(startIndex,3*it_estimated->second-dimTheta) = Eigen::Matrix3d::Identity(); 
+        H.conservativeResize(3, dimP);
+        H.block(0,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
+        H.block<3,3>(0,3*it_estimated->second-dimTheta) = Eigen::Matrix3d::Identity(); 
 
         // Fill out N
-        startIndex = N.rows();
-        N.conservativeResize(startIndex+3, startIndex+3);
-        N.block(startIndex,0,3,startIndex) = Eigen::MatrixXd::Zero(3,startIndex);
-        N.block(0,startIndex,startIndex,3) = Eigen::MatrixXd::Zero(startIndex,3);
-        N.block(startIndex,startIndex,3,3) = 0.001*Eigen::Matrix3d::Identity();
+        N.conservativeResize(3, 3);
+        N.block<3,3>(0,0) = covariance;
 
         // Fill out PI      
-        startIndex = PI.rows();
-        int startIndex2 = PI.cols();
-        PI.conservativeResize(startIndex+3, startIndex2+dimX);
-        PI.block(startIndex,0,3,startIndex2) = Eigen::MatrixXd::Zero(3,startIndex2);
-        PI.block(0,startIndex2,startIndex,dimX) = Eigen::MatrixXd::Zero(startIndex,dimX);
-        PI.block(startIndex,startIndex2,3,dimX) = Eigen::MatrixXd::Zero(3,dimX);
-        PI.block(startIndex,startIndex2,3,3) = Eigen::Matrix3d::Identity();
+        PI.conservativeResize(3, dimX);
+        PI.block(0,0,3,dimX) = Eigen::MatrixXd::Zero(3,dimX);
+        PI.block(0,0,3,3) = Eigen::Matrix3d::Identity();
+
+        // Modify measurement based on chosen indices
+        Eigen::MatrixXd X = state_.getX();
+        const double HIGH_UNCERTAINTY = 1e6;
+        if (!indices(0)) { 
+            Y(0) = X(0,it_estimated->second);
+            N(0,0) = HIGH_UNCERTAINTY;
+            N(0,1) = 0;
+            N(0,2) = 0;
+            N(1,0) = 0;
+            N(2,0) = 0;
+         } 
+        if (!indices(1)) { 
+            Y(1) = X(1,it_estimated->second);
+            N(1,0) = 0;
+            N(1,1) = HIGH_UNCERTAINTY;
+            N(1,2) = 0;
+            N(0,1) = 0;
+            N(2,1) = 0;
+         } 
+        if (!indices(2)) { 
+            Y(2) = X(2,it_estimated->second);
+            N(2,0) = 0;
+            N(2,1) = 0;
+            N(2,2) = HIGH_UNCERTAINTY;
+            N(0,2) = 0;
+            N(1,2) = 0;
+         } 
     }
 
     // Correct state using stacked observation

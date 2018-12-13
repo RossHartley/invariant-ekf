@@ -200,8 +200,6 @@ void InEKF::CorrectLeftInvariant(const Observation& obs) {
 
     Eigen::MatrixXd PHT = P * obs.H.transpose();
     Eigen::MatrixXd S = obs.H * PHT + obs.N;
-    // std::cout << "obs.H * PHT:\n" << obs.H * PHT << std::endl;
-    // std::cout << "S:\n" << S << std::endl;
     Eigen::MatrixXd K = PHT * S.inverse();
 
     // Copy X along the diagonals if more than one measurement

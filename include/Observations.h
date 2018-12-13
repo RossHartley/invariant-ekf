@@ -59,11 +59,15 @@ class Landmark {
 };
 
 
-// Useful types
+/** A map with an integer as key and a Eigen::Vector3d as value. */
 typedef std::map<int,Eigen::Vector3d, std::less<int>, Eigen::aligned_allocator<std::pair<const int,Eigen::Vector3d> > > mapIntVector3d;
 typedef std::map<int,Eigen::Vector3d, std::less<int>, Eigen::aligned_allocator<std::pair<const int,Eigen::Vector3d> > >::const_iterator mapIntVector3dIterator;
+
+/** A vector of Kinematics. */
 typedef std::vector<Kinematics, Eigen::aligned_allocator<Kinematics> > vectorKinematics;
 typedef std::vector<Kinematics, Eigen::aligned_allocator<Kinematics> >::const_iterator vectorKinematicsIterator;
+
+/** A vector of Landmark. */
 typedef std::vector<Landmark, Eigen::aligned_allocator<Landmark> > vectorLandmarks;
 typedef std::vector<Landmark, Eigen::aligned_allocator<Landmark> >::const_iterator vectorLandmarksIterator;
 

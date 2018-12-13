@@ -88,10 +88,10 @@ void InEKF::setMagneticField(Eigen::Vector3d& true_magnetic_field) { magnetic_fi
 Eigen::Vector3d InEKF::getMagneticField() const { return magnetic_field_; }
 
 // InEKF Propagation - Inertial Data
-void InEKF::Propagate(const Eigen::Matrix<double,6,1>& m, double dt) {
+void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
 
-    Eigen::Vector3d w = m.head(3) - state_.getGyroscopeBias();    // Angular Velocity
-    Eigen::Vector3d a = m.tail(3) - state_.getAccelerometerBias(); // Linear Acceleration
+    Eigen::Vector3d w = imu.head(3) - state_.getGyroscopeBias();    // Angular Velocity
+    Eigen::Vector3d a = imu.tail(3) - state_.getAccelerometerBias(); // Linear Acceleration
     
     Eigen::MatrixXd X = state_.getX();
     Eigen::MatrixXd P = state_.getP();

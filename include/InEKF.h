@@ -67,6 +67,13 @@ class InEKF {
         void CorrectPosition(const Eigen::Vector3d& measured_position, const Eigen::Matrix3d& covariance, const Eigen::Vector3d& indices);
         void CorrectContactPosition(const int id, const Eigen::Vector3d& measured_contact_position, const Eigen::Matrix3d& covariance, const Eigen::Vector3d& indices);
 
+        // Other
+        void RemovePriorLandmarks(const int landmark_id);
+        void RemovePriorLandmarks(const std::vector<int> landmark_ids);
+        void RemoveLandmarks(const int landmark_id);
+        void RemoveLandmarks(const std::vector<int> landmark_ids);
+
+
     private:
         RobotState state_;
         NoiseParams noise_params_;

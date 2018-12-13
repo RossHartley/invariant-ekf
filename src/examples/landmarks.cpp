@@ -72,24 +72,23 @@ int main() {
     Eigen::Vector3d p_wl;
     int id;
 
-    // Landmark 1
-    id = 1;
-    p_wl << 0,-1,0;
-    prior_landmarks.insert(pair<int,Eigen::Vector3d> (id, p_wl)); 
-
-    // // Landmark 2
-    // id = 2;
-    // p_wl << 1,1,-0.5;
+    // // Landmark 1
+    // id = 1;
+    // p_wl << 0,-1,0;
     // prior_landmarks.insert(pair<int,Eigen::Vector3d> (id, p_wl)); 
 
-    // Landmark 3
-    id = 3;
-    p_wl << 2,-1,0.5;
+    // Landmark 2
+    id = 2;
+    p_wl << 1,1,-0.5;
     prior_landmarks.insert(pair<int,Eigen::Vector3d> (id, p_wl)); 
+
+    // // Landmark 3
+    // id = 3;
+    // p_wl << 2,-1,0.5;
+    // prior_landmarks.insert(pair<int,Eigen::Vector3d> (id, p_wl)); 
 
     // Store landmarks for localization
     filter.setPriorLandmarks(prior_landmarks); 
-
 
     // Open data file
     ifstream infile("../src/data/imu_landmark_measurements.txt");
@@ -107,7 +106,7 @@ int main() {
         if (measurement[0].compare("IMU")==0){
             cout << "Received IMU Data, propagating state\n";
             assert((measurement.size()-2) == 6);
-            t = stoi98(measurement[1]); 
+            t = stod98(measurement[1]); 
             imu_measurement << stoi98(measurement[2]), 
                                stoi98(measurement[3]), 
                                stoi98(measurement[4]),
@@ -124,7 +123,7 @@ int main() {
         else if (measurement[0].compare("LANDMARK")==0){
             cout << "Received LANDMARK observation, correcting state\n";
             assert((measurement.size()-2)%4 == 0);
-            t = stoi98(measurement[1]); 
+            t = stod98(measurement[1]); 
             vectorLandmarks measured_landmarks;
             for (int i=2; i<measurement.size(); i+=4) {
                 int id = stoi98(measurement[i]);

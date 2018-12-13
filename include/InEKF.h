@@ -36,19 +36,56 @@ class InEKF {
         InEKF(RobotState state);
         InEKF(RobotState state, NoiseParams params);
 
-        // Reset filter
+        /**
+         * Resets the filter
+         * Initializes state matrix to identity, removes all augmented states, and assigns default noise parameters.
+         */
         void clear();
 
-        // Getters
+        /**
+         * Gets the current state estimate.
+         */
         RobotState getState() const;
+
+        /**
+         * Gets the current noise parameters.
+         */
         NoiseParams getNoiseParams() const;
+
+        /**
+         * Gets the filter's current contact states.
+         * @return  map of contact ID and bool that indicates if contact is registed
+         */
         std::map<int,bool> getContacts() const;
+
+        /**
+         * Gets the current estimated contact positions.
+         * @return  map of contact ID and associated index in the state matrix X
+         */
         std::map<int,int> getEstimatedContactPositions() const;
+
+        /**
+         * Gets the filter's prior landmarks.
+         * @return  map of prior landmark ID and position (as a Eigen::Vector3d)
+         */
         mapIntVector3d getPriorLandmarks() const;
+
+        /**
+         * Gets the filter's estimated landmarks.
+         * @return  map of landmark ID and associated index in the state matrix X
+         */
         std::map<int,int> getEstimatedLandmarks() const;
+
+        /**
+         * Gets the filter's set magnetic field.
+         * @return  magnetic field in world frame
+         */
         Eigen::Vector3d getMagneticField() const;
 
-        // Setters
+        /**
+         * Sets the current state estimate
+         * @param   state estimate
+         */
         void setState(RobotState state);
         void setNoiseParams(NoiseParams params);
         void setContacts(std::vector<std::pair<int,bool> > contacts);

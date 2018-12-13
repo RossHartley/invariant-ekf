@@ -324,18 +324,13 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
         Eigen::MatrixXd X_rem = state_.getX(); 
         Eigen::MatrixXd P_rem = state_.getP();
         for (vector<pair<int,int> >::iterator it=remove_contacts.begin(); it!=remove_contacts.end(); ++it) {
-            // Remove from list of estimated contact positions (after we are done with iterator)
-            estimated_contact_positions_.erase(it->first);
-
             // Remove row and column from X
             removeRowAndColumn(X_rem, it->second);
-
             // Remove 3 rows and columns from P
             int startIndex = 3 + 3*(it->second-3);
             removeRowAndColumn(P_rem, startIndex); // TODO: Make more efficient
             removeRowAndColumn(P_rem, startIndex); // TODO: Make more efficient
             removeRowAndColumn(P_rem, startIndex); // TODO: Make more efficient
-
             // Update all indices for estimated_landmarks and estimated_contact_positions
             for (map<int,int>::iterator it2=estimated_landmarks_.begin(); it2!=estimated_landmarks_.end(); ++it2) {
                 if (it2->second > it->second) 
@@ -350,11 +345,12 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
                 if (it2->second > it->second) 
                     it2->second -= 1;
             }
-
-            // Update state and covariance
-            state_.setX(X_rem);
-            state_.setP(P_rem);
+            // Remove from list of estimated contact positions 
+            estimated_contact_positions_.erase(it->first);
         }
+        // Update state and covariance
+        state_.setX(X_rem);
+        state_.setP(P_rem);
     }
 
 
@@ -382,7 +378,7 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
             P_aug = (F*P_aug*F.transpose() + G*it->covariance.block<3,3>(3,3)*G.transpose()).eval(); 
 
             // Update state and covariance
-            state_.setX(X_aug);
+            state_.setX(X_aug); // TODO: move outside of loop (need to make loop independent of state_)
             state_.setP(P_aug);
 
             // Add to list of estimated contact positions
@@ -548,6 +544,7 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
     return;    
 }
 
+
 // Remove landmarks by IDs
 void InEKF::RemoveLandmarks(const int landmark_id) {
      // Search for landmark in state
@@ -580,6 +577,7 @@ void InEKF::RemoveLandmarks(const int landmark_id) {
     }
 }
 
+
 // Remove landmarks by IDs
 void InEKF::RemoveLandmarks(const std::vector<int> landmark_ids) {
     // Loop over landmark_ids and remove
@@ -587,6 +585,7 @@ void InEKF::RemoveLandmarks(const std::vector<int> landmark_ids) {
         this->RemoveLandmarks(landmark_ids[i]);
     }
 }
+
 
 // Remove prior landmarks by IDs
 void InEKF::RemovePriorLandmarks(const int landmark_id) {
@@ -597,6 +596,7 @@ void InEKF::RemovePriorLandmarks(const int landmark_id) {
         prior_landmarks_.erase(it->first);
     }
 }
+
 
 // Remove prior landmarks by IDs
 void InEKF::RemovePriorLandmarks(const std::vector<int> landmark_ids) {

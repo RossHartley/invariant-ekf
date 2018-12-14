@@ -56,11 +56,13 @@ add_executable(landmarks ${PROJECT_SOURCE_DIR}/src/examples/landmarks.cpp ${src_
 add_executable(kinematics ${PROJECT_SOURCE_DIR}/src/examples/kinematics.cpp ${src_files})
 add_executable(propagation_speed ${PROJECT_SOURCE_DIR}/src/tests/propagation_speed.cpp ${src_files})
 add_executable(correction_speed ${PROJECT_SOURCE_DIR}/src/tests/correction_speed.cpp ${src_files})
+add_executable(large_state_speed ${PROJECT_SOURCE_DIR}/src/tests/large_state_speed.cpp ${src_files})
 
 target_link_libraries(landmarks ${Boost_LIBRARIES})
 target_link_libraries(kinematics ${Boost_LIBRARIES})
 target_link_libraries(propagation_speed ${Boost_LIBRARIES})
 target_link_libraries(correction_speed ${Boost_LIBRARIES})
+target_link_libraries(large_state_speed ${Boost_LIBRARIES})
 
 # Create Library
 add_library(inekf SHARED

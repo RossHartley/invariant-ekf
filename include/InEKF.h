@@ -159,21 +159,21 @@ class InEKF {
          * All landmarks positions are assumed to be static.
          * All contacts velocities are assumed to be zero + Gaussian noise.
          * The propagation model currently assumes that the covariance is for the right invariant error.
-         * @param imu: 6x1 vector containing angular velocity and linear acceleration measurements
+         * @param imu: 6x1 vector containing stacked angular velocity and linear acceleration measurements
          * @param dt: double indicating how long to integrate the inertial measurements for
          */
         void Propagate(const Eigen::Matrix<double,6,1>& imu, double dt);
-        /**
+        /** 
          * Corrects the state estimate using the measured forward kinematics between the IMU and a set of contact frames.
          * If contact is indicated but not included in the state, the state is augmented to include the estimated contact position.
          * If contact is not indicated but is included in the state, the contact position is marginalized out of the state. 
-         * This is a right-invariant measurement model.
+         * This is a right-invariant measurement model. Example usage can be found in @include kinematics.cpp
          * @param measured_kinematics: the measured kinematics containing the contact id, relative pose measurement in the IMU frame, and covariance
          */
-        void CorrectKinematics(const vectorKinematics& measured_kinematics);
-        /**
+        void CorrectKinematics(const vectorKinematics& measured_kinematics); 
+        /** 
          * Corrects the state estimate using the measured position between a set of contact frames and the IMU.
-         * If the landmark is not included in the state, the state is augmented to include the estimated landmark position.
+         * If the landmark is not included in the state, the state is augmented to include the estimated landmark position. 
          * This is a right-invariant measurement model.
          * @param measured_landmarks: the measured landmarks containing the contact id, relative position measurement in the IMU frame, and covariance
          */
@@ -187,6 +187,9 @@ class InEKF {
         void CorrectContactPosition(const int id, const Eigen::Vector3d& measured_contact_position, const Eigen::Matrix3d& covariance, const Eigen::Vector3d& indices);
     /// @}
 
+    /** @example kinematics.cpp
+     * Testing
+     */
 
     private:
         RobotState state_;

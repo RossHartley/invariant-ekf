@@ -102,10 +102,13 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
     Eigen::Vector3d p = state_.getPosition();
 
     // Strapdown IMU motion model
-    Eigen::Vector3d phi = w*dt; 
-    Eigen::Matrix3d R_pred = R * Exp_SO3(phi);
-    Eigen::Vector3d v_pred = v + (R*a + g_)*dt;
-    Eigen::Vector3d p_pred = p + v*dt + 0.5*(R*a + g_)*dt*dt;
+    Eigen::Vector3d phi = w*dt;
+    Eigen::Matrix3d G0 = Gamma_SO3(phi,0); // Computation can be sped up by computing G0,G1,G2 all at once
+    Eigen::Matrix3d G1 = Gamma_SO3(phi,1);
+    Eigen::Matrix3d G2 = Gamma_SO3(phi,2);
+    Eigen::Matrix3d R_pred = R * G0;
+    Eigen::Vector3d v_pred = v + (R*G1*a + g_)*dt;
+    Eigen::Vector3d p_pred = p + v*dt + (R*G2*a + 0.5*g_)*dt*dt;
 
     // Set new state (bias has constant dynamics)
     state_.setRotation(R_pred);

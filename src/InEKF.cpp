@@ -136,7 +136,7 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
     Qk.block<3,3>(3,3) = noise_params_.getAccelerometerCov();
     for(map<int,int>::iterator it=estimated_contact_positions_.begin(); it!=estimated_contact_positions_.end(); ++it) {
         Qk.block<3,3>(3+3*(it->second-3),3+3*(it->second-3)) = noise_params_.getContactCov(); // Contact noise terms
-    } // TODO: Use kinematic orientation to map noise from contact frame to body frame
+    } // TODO: Use kinematic orientation to map noise from contact frame to body frame (not needed if noise is isotropic)
     Qk.block<3,3>(dimP-dimTheta,dimP-dimTheta) = noise_params_.getGyroscopeBiasCov();
     Qk.block<3,3>(dimP-dimTheta+3,dimP-dimTheta+3) = noise_params_.getAccelerometerBiasCov();
 

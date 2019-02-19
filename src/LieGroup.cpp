@@ -38,7 +38,7 @@ Eigen::Matrix3d Gamma_SO3(const Eigen::Vector3d& w, int m) {
     Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
     double theta = w.norm();
     if (theta < TOLERANCE) {
-        return (1.0/factorial(m))*I;
+        return (1.0/factorial(m))*I; // TODO: There is a better small value approximation for exp() given in Trawny p.19
     } 
     Eigen::Matrix3d A = skew(w);
     double theta2 =  theta*theta;

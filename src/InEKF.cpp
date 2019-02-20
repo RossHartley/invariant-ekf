@@ -90,18 +90,30 @@ Eigen::Vector3d InEKF::getMagneticField() const { return magnetic_field_; }
 // InEKF Propagation - Inertial Data
 void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
 
-    Eigen::Vector3d w = imu.head(3) - state_.getGyroscopeBias();    // Angular Velocity
-    Eigen::Vector3d a = imu.tail(3) - state_.getAccelerometerBias(); // Linear Acceleration
+    // Bias corrected IMU measurements
+    Eigen::Matrix<double,6,1> imu_biased;
+    imu_biased(0) = imu(0) + 0.0;
+    imu_biased(1) = imu(1) + 0.0;
+    imu_biased(2) = imu(2) + 0.0;
+    imu_biased(3) = imu(3) - 0.0;
+    imu_biased(4) = imu(4) - 0.0;
+    imu_biased(5) = imu(5) - 0.0;
+    Eigen::Vector3d w = imu_biased.head(3)  - state_.getGyroscopeBias();    // Angular Velocity
+    Eigen::Vector3d a = imu_biased.tail(3) - state_.getAccelerometerBias(); // Linear Acceleration
     
+    // Get current state estimate and dimensions
     Eigen::MatrixXd X = state_.getX();
     Eigen::MatrixXd P = state_.getP();
+    int dimX = state_.dimX();
+    int dimP = state_.dimP();
+    int dimTheta = state_.dimTheta();
 
     // Extract State
     Eigen::Matrix3d R = state_.getRotation();
     Eigen::Vector3d v = state_.getVelocity();
     Eigen::Vector3d p = state_.getPosition();
 
-    // Strapdown IMU motion model
+    // Nonlinear Strapdown IMU dynamics model
     Eigen::Vector3d phi = w*dt;
     Eigen::Matrix3d G0 = Gamma_SO3(phi,0); // Computation can be sped up by computing G0,G1,G2 all at once
     Eigen::Matrix3d G1 = Gamma_SO3(phi,1);
@@ -110,27 +122,42 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
     Eigen::Vector3d v_pred = v + (R*G1*a + g_)*dt;
     Eigen::Vector3d p_pred = p + v*dt + (R*G2*a + 0.5*g_)*dt*dt;
 
-    // Set new state (bias has constant dynamics)
-    state_.setRotation(R_pred);
-    state_.setVelocity(v_pred);
-    state_.setPosition(p_pred);
-
-    // ---- Linearized invariant error dynamics -----
-    int dimX = state_.dimX();
-    int dimP = state_.dimP();
-    int dimTheta = state_.dimTheta();
+    // Compute Log-Linear dynamics based on error type
     Eigen::MatrixXd A = Eigen::MatrixXd::Zero(dimP,dimP);
-    // Inertial terms
-    A.block<3,3>(3,0) = skew(g_); // TODO: Efficiency could be improved by not computing the constant terms every time
-    A.block<3,3>(6,3) = Eigen::Matrix3d::Identity();
-    // Bias terms
-    A.block<3,3>(0,dimP-dimTheta) = -R;
-    A.block<3,3>(3,dimP-dimTheta+3) = -R;
-    for (int i=3; i<dimX; ++i) {
-        A.block<3,3>(3*i-6,dimP-dimTheta) = -skew(X.block<3,1>(0,i))*R;
-    } 
+    Eigen::MatrixXd G = Eigen::MatrixXd::Identity(dimP,dimP);
+    switch (error_type_) {
+        case ErrorType::LeftInvariant:
+            // Diagonal terms
+            for (int i=0; i<(dimX-2); ++i) {
+                A.block<3,3>(3*i,3*i) = -skew(w);
+            } 
+            // Off Diagonal terms
+            A.block<3,3>(3,0) = -skew(a); 
+            A.block<3,3>(6,3) = Eigen::Matrix3d::Identity();
+            A.block<3,3>(0,dimP-dimTheta) = -Eigen::Matrix3d::Identity();
+            A.block<3,3>(3,dimP-dimTheta+3) = -Eigen::Matrix3d::Identity();
+            break;
 
-    // Noise terms
+        case ErrorType::RightInvariant:
+            // Inertial terms
+            A.block<3,3>(3,0) = skew(g_); // TODO: Efficiency could be improved by not computing the constant terms every time
+            A.block<3,3>(6,3) = Eigen::Matrix3d::Identity();
+            // Bias terms
+            A.block<3,3>(0,dimP-dimTheta) = -R;
+            A.block<3,3>(3,dimP-dimTheta+3) = -R;
+            for (int i=3; i<dimX; ++i) {
+                A.block<3,3>(3*i-6,dimP-dimTheta) = -skew(X.block<3,1>(0,i))*R;
+            } 
+            // Noise Jacobian
+            G.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(X);
+            break;
+
+        default:
+            std::cout << "INVALID ERROR TYPE\n";
+            // should't get here (TODO: add check)
+    }
+
+    // Noise Covariance terms
     Eigen::MatrixXd Qk = Eigen::MatrixXd::Zero(dimP,dimP); // Landmark noise terms will remain zero
     Qk.block<3,3>(0,0) = noise_params_.getGyroscopeCov(); 
     Qk.block<3,3>(3,3) = noise_params_.getAccelerometerCov();
@@ -140,18 +167,21 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
     Qk.block<3,3>(dimP-dimTheta,dimP-dimTheta) = noise_params_.getGyroscopeBiasCov();
     Qk.block<3,3>(dimP-dimTheta+3,dimP-dimTheta+3) = noise_params_.getAccelerometerBiasCov();
 
-    // Discretization
-    Eigen::MatrixXd I = Eigen::MatrixXd::Identity(dimP,dimP);
-    Eigen::MatrixXd Phi = I + A*dt; // Fast approximation of exp(A*dt). TODO: explore using the full exp() instead
-    Eigen::MatrixXd Adj = I;
-    Adj.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(X); 
-    Eigen::MatrixXd PhiAdj = Phi * Adj;
-    Eigen::MatrixXd Qk_hat = PhiAdj * Qk * PhiAdj.transpose() * dt; // Approximated discretized noise matrix
+    // State Transition Matrix
+    Eigen::MatrixXd Adt = A*dt; 
+    Eigen::MatrixXd Phi = Adt.exp(); // TODO: Compare to I + A*dt Fast approximation of exp(A*dt)
+
+    // Noise Covariance Discretization
+    Eigen::MatrixXd PhiG = Phi * G;
+    Eigen::MatrixXd Qk_hat = PhiG * Qk * PhiG.transpose() * dt; // Approximated discretized noise matrix
 
     // Propagate Covariance
     Eigen::MatrixXd P_pred = Phi * P * Phi.transpose() + Qk_hat;
 
-    // Set new covariance
+    // Set new state and covariance
+    state_.setRotation(R_pred);
+    state_.setVelocity(v_pred);
+    state_.setPosition(p_pred);
     state_.setP(P_pred);
 
     return;
@@ -159,31 +189,54 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
 
 // Correct State: Right-Invariant Observation
 void InEKF::CorrectRightInvariant(const Observation& obs) {
-    // Compute Kalman Gain
+    // Get current state estimate
+    Eigen::MatrixXd X = state_.getX();
+    Eigen::VectorXd Theta = state_.getTheta();
     Eigen::MatrixXd P = state_.getP();
+    int dimX = state_.dimX();
+    int dimTheta = state_.dimTheta();
+    int dimP = state_.dimP();
+
+    // Map from left invariant to right invariant error temporarily
+    if (error_type_==ErrorType::LeftInvariant) {
+        Eigen::MatrixXd Adj = Eigen::MatrixXd::Identity(dimP,dimP);
+        Adj.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(X); 
+        P = (Adj * P * Adj.transpose()).eval(); 
+    }
+
+    // Compute Kalman Gain
     Eigen::MatrixXd PHT = P * obs.H.transpose();
     Eigen::MatrixXd S = obs.H * PHT + obs.N;
     Eigen::MatrixXd K = PHT * S.inverse();
 
     // Copy X along the diagonals if more than one measurement
     Eigen::MatrixXd BigX;
-    state_.copyDiagX(obs.Y.rows()/state_.dimX(), BigX);
+    state_.copyDiagX(obs.Y.rows()/dimX, BigX);
    
     // Compute correction terms
     Eigen::MatrixXd Z = BigX*obs.Y - obs.b;
     Eigen::VectorXd delta = K*obs.PI*Z;
-    Eigen::MatrixXd dX = Exp_SEK3(delta.segment(0,delta.rows()-state_.dimTheta()));
-    Eigen::VectorXd dTheta = delta.segment(delta.rows()-state_.dimTheta(), state_.dimTheta());
+    Eigen::MatrixXd dX = Exp_SEK3(delta.segment(0,delta.rows()-dimTheta));
+    Eigen::VectorXd dTheta = delta.segment(delta.rows()-dimTheta, dimTheta);
 
     // Update state
-    Eigen::MatrixXd X_new = dX*state_.getX(); // Right-Invariant Update
-    Eigen::VectorXd Theta_new = state_.getTheta() + dTheta;
-    state_.setX(X_new); 
-    state_.setTheta(Theta_new);
+    Eigen::MatrixXd X_new = dX*X; // Right-Invariant Update
+    Eigen::VectorXd Theta_new = Theta + dTheta;
 
     // Update Covariance
-    Eigen::MatrixXd IKH = Eigen::MatrixXd::Identity(state_.dimP(),state_.dimP()) - K*obs.H;
+    Eigen::MatrixXd IKH = Eigen::MatrixXd::Identity(dimP,dimP) - K*obs.H;
     Eigen::MatrixXd P_new = IKH * P * IKH.transpose() + K*obs.N*K.transpose(); // Joseph update form
+
+    // Map from right invariant back to left invariant error
+    if (error_type_==ErrorType::LeftInvariant) {
+        Eigen::MatrixXd AdjInv = Eigen::MatrixXd::Identity(dimP,dimP);
+        AdjInv.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(X_new.inverse()); // TODO: move to analytical inverse
+        P_new = (AdjInv * P * AdjInv.transpose()).eval();
+    }
+
+    // Set new state
+    state_.setX(X_new); 
+    state_.setTheta(Theta_new);
     state_.setP(P_new); 
 }   
 
@@ -191,42 +244,54 @@ void InEKF::CorrectRightInvariant(const Observation& obs) {
 // Correct State: Left-Invariant Observation
 void InEKF::CorrectLeftInvariant(const Observation& obs) {
 
-    // Compute Kalman Gain
+    // Get current state estimate
+    Eigen::MatrixXd X = state_.getX();
+    Eigen::VectorXd Theta = state_.getTheta();
     Eigen::MatrixXd P = state_.getP();
-    // For now, the covariance is always assumed to be right-invariant
-    // therefore, we need to map it temporarily to left-invariant for this correction
-    int dimP = state_.dimP();
+    int dimX = state_.dimX();
     int dimTheta = state_.dimTheta();
-    Eigen::MatrixXd Adj = Eigen::MatrixXd::Identity(dimP,dimP);
-    Adj.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(state_.getX().inverse()); // TODO: move to analytical inverse
-    P = (Adj * P * Adj.transpose()).eval(); 
+    int dimP = state_.dimP();
 
+    // Map from right invariant to left invariant error temporarily
+    if (error_type_==ErrorType::RightInvariant) {
+        Eigen::MatrixXd AdjInv = Eigen::MatrixXd::Identity(dimP,dimP);
+        AdjInv.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(X.inverse()); // TODO: move to analytical inverse
+        P = (AdjInv * P * AdjInv.transpose()).eval();
+    }
+
+    // Compute Kalman Gain
     Eigen::MatrixXd PHT = P * obs.H.transpose();
     Eigen::MatrixXd S = obs.H * PHT + obs.N;
     Eigen::MatrixXd K = PHT * S.inverse();
 
     // Copy X along the diagonals if more than one measurement
     Eigen::MatrixXd BigXinv;
-    state_.copyDiagXinv(obs.Y.rows()/state_.dimX(), BigXinv);
+    state_.copyDiagXinv(obs.Y.rows()/dimX, BigXinv);
+
     // Compute correction terms
     Eigen::MatrixXd Z = BigXinv*obs.Y - obs.b;
     Eigen::VectorXd delta = K*obs.PI*Z;
-    Eigen::MatrixXd dX = Exp_SEK3(delta.segment(0,delta.rows()-state_.dimTheta()));
-    Eigen::VectorXd dTheta = delta.segment(delta.rows()-state_.dimTheta(), state_.dimTheta());
+    Eigen::MatrixXd dX = Exp_SEK3(delta.segment(0,delta.rows()-dimTheta));
+    Eigen::VectorXd dTheta = delta.segment(delta.rows()-dimTheta, dimTheta);
 
     // Update state
-    Eigen::MatrixXd X_new = state_.getX()*dX; // Left-Invariant Update
-    Eigen::VectorXd Theta_new = state_.getTheta() + dTheta;
-    state_.setX(X_new); 
-    state_.setTheta(Theta_new);
+    Eigen::MatrixXd X_new = X*dX; // Left-Invariant Update
+    Eigen::VectorXd Theta_new = Theta + dTheta;
 
     // Update Covariance
-    Eigen::MatrixXd IKH = Eigen::MatrixXd::Identity(state_.dimP(),state_.dimP()) - K*obs.H;
+    Eigen::MatrixXd IKH = Eigen::MatrixXd::Identity(dimP,dimP) - K*obs.H;
     Eigen::MatrixXd P_new = IKH * P * IKH.transpose() + K*obs.N*K.transpose(); // Joseph update form
-    // For now, the covariance is always assumed to be right-invariant
-    // therefore, we need to map it back right-invariant 
-    Adj.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(state_.getX()); // TODO: move to analytical inverse
-    P_new = (Adj * P_new * Adj.transpose()).eval(); 
+
+    // Map from left invariant back to right invariant error
+    if (error_type_==ErrorType::RightInvariant) {
+        Eigen::MatrixXd Adj = Eigen::MatrixXd::Identity(dimP,dimP);
+        Adj.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(X_new); 
+        P_new = (Adj * P_new * Adj.transpose()).eval(); 
+    }
+
+    // Set new state
+    state_.setX(X_new); 
+    state_.setTheta(Theta_new);
     state_.setP(P_new); 
 }   
 

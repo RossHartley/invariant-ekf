@@ -14,6 +14,7 @@
 #ifndef INEKF_H
 #define INEKF_H 
 #include <Eigen/Dense>
+#include <unsupported/Eigen/MatrixFunctions>
 #include <iostream>
 #include <vector>
 #include <map>
@@ -24,6 +25,8 @@
 #include "Observations.h"
 
 namespace inekf {
+
+enum ErrorType {LeftInvariant, RightInvariant};
 
 class InEKF {
     
@@ -192,6 +195,7 @@ class InEKF {
      */
 
     private:
+        ErrorType error_type_ = ErrorType::RightInvariant; 
         RobotState state_;
         NoiseParams noise_params_;
         const Eigen::Vector3d g_; // Gravity vector in world frame (z-up)

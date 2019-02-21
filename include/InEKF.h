@@ -56,6 +56,13 @@ class InEKF {
          * @param params: The noise parameters to be assigned.
          */        
         InEKF(RobotState state, NoiseParams params);
+        /**
+         * Initialize filter with state, noise, and error type.
+         * @param state: The state to be assigned.
+         * @param params: The noise parameters to be assigned.
+         * @param error_type: The type of invariant error to be used (affects covariance).
+         */       
+        InEKF(RobotState state, NoiseParams params, ErrorType error_type);
     /// @}
 
     
@@ -188,14 +195,15 @@ class InEKF {
         void CorrectPosition(const Eigen::Vector3d& measured_position, const Eigen::Matrix3d& covariance, const Eigen::Vector3d& indices);
         /** TODO: Untested contact position measurement*/
         void CorrectContactPosition(const int id, const Eigen::Vector3d& measured_contact_position, const Eigen::Matrix3d& covariance, const Eigen::Vector3d& indices);
-    /// @}
+    /// @} 
 
     /** @example kinematics.cpp
      * Testing
      */
 
     private:
-        ErrorType error_type_ = ErrorType::RightInvariant; 
+        ErrorType error_type_ = ErrorType::LeftInvariant; 
+        bool estimate_bias_ = false;
         RobotState state_;
         NoiseParams noise_params_;
         const Eigen::Vector3d g_; // Gravity vector in world frame (z-up)

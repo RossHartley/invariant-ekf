@@ -31,6 +31,9 @@ InEKF::InEKF(RobotState state) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()
 // Constructor with initial state and noise params
 InEKF::InEKF(RobotState state, NoiseParams params) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), magnetic_field_((Eigen::VectorXd(3) << 0,0,0).finished()), state_(state), noise_params_(params) {}
 
+// Constructor with initial state, noise params, and error type
+InEKF::InEKF(RobotState state, NoiseParams params, ErrorType error_type) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), magnetic_field_((Eigen::VectorXd(3) << 0,0,0).finished()), state_(state), noise_params_(params), error_type_(error_type) {}
+
 // Clear all data in the filter
 void InEKF::clear() {
     state_ = RobotState();
@@ -178,6 +181,15 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
     // Propagate Covariance
     Eigen::MatrixXd P_pred = Phi * P * Phi.transpose() + Qk_hat;
 
+    // If we don't want to estimate bias, remove correlation
+    if (~estimate_bias_) {
+        P_pred.block(0,dimP-dimTheta,dimP-dimTheta,dimTheta) = Eigen::MatrixXd::Zero(dimP-dimTheta,dimTheta);
+        P_pred.block(dimP-dimTheta,0,dimTheta,dimP-dimTheta) = Eigen::MatrixXd::Zero(dimTheta,dimP-dimTheta);
+        P_pred.block(dimP-dimTheta,dimP-dimTheta,dimTheta,dimTheta) = Eigen::MatrixXd::Identity(dimTheta,dimTheta);
+    }
+
+    // std::cout << "P_pred:\n" << P_pred << "\n\n";
+
     // Set new state and covariance
     state_.setRotation(R_pred);
     state_.setVelocity(v_pred);
@@ -223,6 +235,10 @@ void InEKF::CorrectRightInvariant(const Observation& obs) {
     Eigen::MatrixXd X_new = dX*X; // Right-Invariant Update
     Eigen::VectorXd Theta_new = Theta + dTheta;
 
+    // Set new state
+    state_.setX(X_new); 
+    state_.setTheta(Theta_new);
+
     // Update Covariance
     Eigen::MatrixXd IKH = Eigen::MatrixXd::Identity(dimP,dimP) - K*obs.H;
     Eigen::MatrixXd P_new = IKH * P * IKH.transpose() + K*obs.N*K.transpose(); // Joseph update form
@@ -230,13 +246,11 @@ void InEKF::CorrectRightInvariant(const Observation& obs) {
     // Map from right invariant back to left invariant error
     if (error_type_==ErrorType::LeftInvariant) {
         Eigen::MatrixXd AdjInv = Eigen::MatrixXd::Identity(dimP,dimP);
-        AdjInv.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(X_new.inverse()); // TODO: move to analytical inverse
+        AdjInv.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(state_.Xinv()); /
         P_new = (AdjInv * P * AdjInv.transpose()).eval();
     }
 
-    // Set new state
-    state_.setX(X_new); 
-    state_.setTheta(Theta_new);
+    // Set new covariance
     state_.setP(P_new); 
 }   
 
@@ -255,7 +269,7 @@ void InEKF::CorrectLeftInvariant(const Observation& obs) {
     // Map from right invariant to left invariant error temporarily
     if (error_type_==ErrorType::RightInvariant) {
         Eigen::MatrixXd AdjInv = Eigen::MatrixXd::Identity(dimP,dimP);
-        AdjInv.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(X.inverse()); // TODO: move to analytical inverse
+        AdjInv.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(state_.Xinv()); 
         P = (AdjInv * P * AdjInv.transpose()).eval();
     }
 
@@ -278,6 +292,10 @@ void InEKF::CorrectLeftInvariant(const Observation& obs) {
     Eigen::MatrixXd X_new = X*dX; // Left-Invariant Update
     Eigen::VectorXd Theta_new = Theta + dTheta;
 
+    // Set new state
+    state_.setX(X_new); 
+    state_.setTheta(Theta_new);
+
     // Update Covariance
     Eigen::MatrixXd IKH = Eigen::MatrixXd::Identity(dimP,dimP) - K*obs.H;
     Eigen::MatrixXd P_new = IKH * P * IKH.transpose() + K*obs.N*K.transpose(); // Joseph update form
@@ -289,9 +307,7 @@ void InEKF::CorrectLeftInvariant(const Observation& obs) {
         P_new = (Adj * P_new * Adj.transpose()).eval(); 
     }
 
-    // Set new state
-    state_.setX(X_new); 
-    state_.setTheta(Theta_new);
+    // Set new covariance
     state_.setP(P_new); 
 }   
 

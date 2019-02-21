@@ -83,19 +83,28 @@ void RobotState::copyDiagX(int n, Eigen::MatrixXd& BigX) const {
 
 void RobotState::copyDiagXinv(int n, Eigen::MatrixXd& BigXinv) const {
     int dimX = this->dimX();
-    Eigen::MatrixXd Xinv;
-    Xinv.resize(dimX,dimX);
-    Xinv = X_.inverse(); // TODO: Replace with simple solution
+    Eigen::MatrixXd Xinv = this->Xinv();
     for(int i=0; i<n; ++i) {
         int startIndex = BigXinv.rows();
         BigXinv.conservativeResize(startIndex + dimX, startIndex + dimX);
         BigXinv.block(startIndex,0,dimX,startIndex) = Eigen::MatrixXd::Zero(dimX,startIndex);
         BigXinv.block(0,startIndex,startIndex,dimX) = Eigen::MatrixXd::Zero(startIndex,dimX);
-
         BigXinv.block(startIndex,startIndex,dimX,dimX) = Xinv;
     }
     return;
 }
+
+const Eigen::MatrixXd RobotState::Xinv() const {
+    int dimX = this->dimX();
+    Eigen::MatrixXd Xinv = Eigen::MatrixXd::Identity(dimX,dimX);
+    Eigen::Matrix3d RT = X_.block<3,3>(0,0).transpose();
+    Xinv.block<3,3>(0,0) = RT;
+    for(int i=3; i<dimX; ++i) {
+        Xinv.block<3,1>(0,i) = -RT*X_.block<3,1>(0,i);
+    }
+    return Xinv;
+}
+
 
 ostream& operator<<(ostream& os, const RobotState& s) {  
     os << "--------- Robot State -------------" << endl;

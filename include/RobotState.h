@@ -60,6 +60,8 @@ class RobotState {
         void copyDiagX(int n, Eigen::MatrixXd& BigX) const;
         void copyDiagXinv(int n, Eigen::MatrixXd& BigXinv) const;
 
+        const Eigen::MatrixXd Xinv() const;
+
         friend std::ostream& operator<<(std::ostream& os, const RobotState& s);  
 
     private:

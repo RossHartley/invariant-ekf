@@ -43,8 +43,8 @@ int main() {
     Eigen::Matrix3d R0;
     Eigen::Vector3d v0, p0, bg0, ba0;
     R0 << 1, 0, 0, // initial orientation
-          0, -1, 0, // IMU frame is rotated 90deg about the x-axis
-          0, 0, -1;
+          0, 1, 0, // IMU frame is rotated 90deg about the x-axis
+          0, 0, 1;
     v0 << 0,0,0; // initial velocity
     p0 << 0,0,0; // initial position
     bg0 << 0,0,0; // initial gyroscope bias
@@ -57,11 +57,11 @@ int main() {
 
     // Initialize state covariance
     NoiseParams noise_params;
-    noise_params.setGyroscopeNoise(0.01);
-    noise_params.setAccelerometerNoise(0.1);
-    noise_params.setGyroscopeBiasNoise(0.00001);
-    noise_params.setAccelerometerBiasNoise(0.0001);
-    noise_params.setContactNoise(0.01);
+    noise_params.setGyroscopeNoise(0.00);
+    noise_params.setAccelerometerNoise(0.0);
+    noise_params.setGyroscopeBiasNoise(0.00000);
+    noise_params.setAccelerometerBiasNoise(0.0000);
+    noise_params.setContactNoise(0.00);
 
     // Initialize filter
     InEKF filter(initial_state, noise_params);
@@ -77,6 +77,9 @@ int main() {
     Eigen::Matrix<double,6,1> imu_measurement_prev = Eigen::Matrix<double,6,1>::Zero();
     double t = 0;
     double t_prev = 0;
+
+    // int NUM_LINES = 638;
+    // int count = 0;
 
     // ---- Loop through data file and read in measurements line by line ---- //
     while (getline(infile, line)){
@@ -97,10 +100,13 @@ int main() {
 
             // Propagate using IMU data
             double dt = t - t_prev;
-            if (dt > DT_MIN && dt < DT_MAX) {
+            // if (dt > DT_MIN && dt < DT_MAX) {
                 filter.Propagate(imu_measurement_prev, dt);
-            }
+            // }
 
+            // Store previous timestamp
+            t_prev = t;
+            imu_measurement_prev = imu_measurement;
         }
         else if (measurement[0].compare("CONTACT")==0){
             cout << "Received CONTACT Data, setting filter's contact state\n";
@@ -108,7 +114,7 @@ int main() {
             vector<pair<int,bool> > contacts;
             int id;
             bool indicator;
-            t = stod98(measurement[1]); 
+            // t = stod98(measurement[1]); 
             // Read in contact data
             for (int i=2; i<measurement.size(); i+=2) {
                 id = stoi98(measurement[i]);
@@ -127,7 +133,7 @@ int main() {
             Eigen::Matrix4d pose = Eigen::Matrix4d::Identity();
             Eigen::Matrix<double,6,6> covariance;
             vectorKinematics measured_kinematics;
-            t = stod98(measurement[1]); 
+            // t = stod98(measurement[1]); 
             // Read in kinematic data
             for (int i=2; i<measurement.size(); i+=44) {
                 id = stoi98(measurement[i]); 
@@ -148,12 +154,17 @@ int main() {
             filter.CorrectKinematics(measured_kinematics);
         }
 
-        // Store previous timestamp
-        t_prev = t;
-        imu_measurement_prev = imu_measurement;
+        // count++;
+        // if (count > NUM_LINES)
+        //     break;
     }
 
     // Print final state
+    cout.precision(17);
+    cout << "imu:\n " << imu_measurement << endl;
+    cout << "t:\n " << t << endl;
+
     cout << filter.getState() << endl;
+    cout << "Covariance: \n" << filter.getState().getP() << endl;
     return 0;
 }

@@ -69,6 +69,10 @@ class InEKF {
     /// @name Getters
     /// @{
         /**
+         * Gets the current error type.
+         */
+        ErrorType getErrorType() const;
+        /**
          * Gets the current state estimate.
          */
         RobotState getState() const;
@@ -203,7 +207,7 @@ class InEKF {
 
     private:
         ErrorType error_type_ = ErrorType::LeftInvariant; 
-        bool estimate_bias_ = false;
+        bool estimate_bias_ = true;  
         RobotState state_;
         NoiseParams noise_params_;
         const Eigen::Vector3d g_; // Gravity vector in world frame (z-up)

@@ -44,6 +44,9 @@ void InEKF::clear() {
     estimated_contact_positions_.clear();
 }
 
+// Returns the robot's current error type
+ErrorType InEKF::getErrorType() const { return error_type_; }
+
 // Return robot's current state
 RobotState InEKF::getState() const { return state_; }
 
@@ -106,6 +109,7 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
     
     // Get current state estimate and dimensions
     Eigen::MatrixXd X = state_.getX();
+    Eigen::MatrixXd Xinv = state_.Xinv();
     Eigen::MatrixXd P = state_.getP();
     int dimX = state_.dimX();
     int dimP = state_.dimP();
@@ -125,35 +129,68 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
     Eigen::Vector3d v_pred = v + (R*G1*a + g_)*dt;
     Eigen::Vector3d p_pred = p + v*dt + (R*G2*a + 0.5*g_)*dt*dt;
 
-    // Compute Log-Linear dynamics based on error type
+    // Set new state
+    state_.setRotation(R_pred);
+    state_.setVelocity(v_pred);
+    state_.setPosition(p_pred);
+
+    // Compute Log-Linear dynamics based on error type (TODO: Compute analytical)
     Eigen::MatrixXd A = Eigen::MatrixXd::Zero(dimP,dimP);
     Eigen::MatrixXd G = Eigen::MatrixXd::Identity(dimP,dimP);
+    Eigen::MatrixXd Phi = Eigen::MatrixXd::Identity(dimP,dimP);
     switch (error_type_) {
-        case ErrorType::LeftInvariant:
+        case ErrorType::LeftInvariant: {
             // Diagonal terms
             for (int i=0; i<(dimX-2); ++i) {
-                A.block<3,3>(3*i,3*i) = -skew(w);
+                A.block<3,3>(3*i,3*i) = skew(-w);
             } 
             // Off Diagonal terms
-            A.block<3,3>(3,0) = -skew(a); 
+            A.block<3,3>(3,0) = skew(-a); 
             A.block<3,3>(6,3) = Eigen::Matrix3d::Identity();
             A.block<3,3>(0,dimP-dimTheta) = -Eigen::Matrix3d::Identity();
             A.block<3,3>(3,dimP-dimTheta+3) = -Eigen::Matrix3d::Identity();
+            // State Transition Matrix
+            Eigen::MatrixXd Adt = A*dt; 
+            Phi = Adt.exp(); 
             break;
+        }
 
-        case ErrorType::RightInvariant:
-            // Inertial terms
-            A.block<3,3>(3,0) = skew(g_); // TODO: Efficiency could be improved by not computing the constant terms every time
-            A.block<3,3>(6,3) = Eigen::Matrix3d::Identity();
-            // Bias terms
-            A.block<3,3>(0,dimP-dimTheta) = -R;
-            A.block<3,3>(3,dimP-dimTheta+3) = -R;
-            for (int i=3; i<dimX; ++i) {
-                A.block<3,3>(3*i-6,dimP-dimTheta) = -skew(X.block<3,1>(0,i))*R;
+        case ErrorType::RightInvariant: {
+            // --- Not exact (assumes state is constant over dt) ----
+            // // Inertial terms
+            // A.block<3,3>(3,0) = skew(g_); // TODO: Efficiency could be improved by not computing the constant terms every time
+            // A.block<3,3>(6,3) = Eigen::Matrix3d::Identity();
+            // // Bias terms
+            // A.block<3,3>(0,dimP-dimTheta) = -R;
+            // A.block<3,3>(3,dimP-dimTheta+3) = -R;
+            // for (int i=3; i<dimX; ++i) {
+            //     A.block<3,3>(3*i-6,dimP-dimTheta) = -skew(X.block<3,1>(0,i))*R;
+            // } 
+            // Eigen::MatrixXd Adt = A*dt; 
+            // Phi = Adt.exp(); 
+
+            // --- Exact (uses the left-invariant state transition which can be computed from the matrix exponential) ----
+            // Diagonal terms
+            for (int i=0; i<(dimX-2); ++i) {
+                A.block<3,3>(3*i,3*i) = skew(-w);
             } 
+            // Off Diagonal terms
+            A.block<3,3>(3,0) = skew(-a); 
+            A.block<3,3>(6,3) = Eigen::Matrix3d::Identity();
+            A.block<3,3>(0,dimP-dimTheta) = -Eigen::Matrix3d::Identity();
+            A.block<3,3>(3,dimP-dimTheta+3) = -Eigen::Matrix3d::Identity();
+            // State Transition Matrix
+            Eigen::MatrixXd Adt = A*dt; 
+            Eigen::MatrixXd AdjXk1 = Eigen::MatrixXd::Identity(dimP,dimP);
+            Eigen::MatrixXd AdjXkInv = Eigen::MatrixXd::Identity(dimP,dimP);
+            AdjXk1.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(state_.getX());
+            AdjXkInv.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(Xinv);
+            Phi = AdjXk1 * Adt.exp() * AdjXkInv; 
+
             // Noise Jacobian
             G.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(X);
             break;
+        }
 
         default:
             std::cout << "INVALID ERROR TYPE\n";
@@ -170,33 +207,22 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
     Qk.block<3,3>(dimP-dimTheta,dimP-dimTheta) = noise_params_.getGyroscopeBiasCov();
     Qk.block<3,3>(dimP-dimTheta+3,dimP-dimTheta+3) = noise_params_.getAccelerometerBiasCov();
 
-    // State Transition Matrix
-    Eigen::MatrixXd Adt = A*dt; 
-    Eigen::MatrixXd Phi = Adt.exp(); // TODO: Compare to I + A*dt Fast approximation of exp(A*dt)
-
     // Noise Covariance Discretization
     Eigen::MatrixXd PhiG = Phi * G;
-    Eigen::MatrixXd Qk_hat = PhiG * Qk * PhiG.transpose() * dt; // Approximated discretized noise matrix
+    Eigen::MatrixXd Qk_hat = PhiG * Qk * PhiG.transpose() * dt; // Approximated discretized noise matrix (TODO: compute analytical)
 
     // Propagate Covariance
     Eigen::MatrixXd P_pred = Phi * P * Phi.transpose() + Qk_hat;
 
     // If we don't want to estimate bias, remove correlation
-    if (~estimate_bias_) {
+    if (!estimate_bias_) {
         P_pred.block(0,dimP-dimTheta,dimP-dimTheta,dimTheta) = Eigen::MatrixXd::Zero(dimP-dimTheta,dimTheta);
         P_pred.block(dimP-dimTheta,0,dimTheta,dimP-dimTheta) = Eigen::MatrixXd::Zero(dimTheta,dimP-dimTheta);
         P_pred.block(dimP-dimTheta,dimP-dimTheta,dimTheta,dimTheta) = Eigen::MatrixXd::Identity(dimTheta,dimTheta);
     }
 
-    // std::cout << "P_pred:\n" << P_pred << "\n\n";
-
-    // Set new state and covariance
-    state_.setRotation(R_pred);
-    state_.setVelocity(v_pred);
-    state_.setPosition(p_pred);
+    // Set new covariance
     state_.setP(P_pred);
-
-    return;
 }
 
 // Correct State: Right-Invariant Observation
@@ -235,7 +261,7 @@ void InEKF::CorrectRightInvariant(const Observation& obs) {
     Eigen::MatrixXd X_new = dX*X; // Right-Invariant Update
     Eigen::VectorXd Theta_new = Theta + dTheta;
 
-    // Set new state
+    // Set new state  
     state_.setX(X_new); 
     state_.setTheta(Theta_new);
 
@@ -246,8 +272,8 @@ void InEKF::CorrectRightInvariant(const Observation& obs) {
     // Map from right invariant back to left invariant error
     if (error_type_==ErrorType::LeftInvariant) {
         Eigen::MatrixXd AdjInv = Eigen::MatrixXd::Identity(dimP,dimP);
-        AdjInv.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(state_.Xinv()); /
-        P_new = (AdjInv * P * AdjInv.transpose()).eval();
+        AdjInv.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(state_.Xinv()); 
+        P_new = (AdjInv * P_new * AdjInv.transpose()).eval();
     }
 
     // Set new covariance
@@ -284,6 +310,7 @@ void InEKF::CorrectLeftInvariant(const Observation& obs) {
 
     // Compute correction terms
     Eigen::MatrixXd Z = BigXinv*obs.Y - obs.b;
+
     Eigen::VectorXd delta = K*obs.PI*Z;
     Eigen::MatrixXd dX = Exp_SEK3(delta.segment(0,delta.rows()-dimTheta));
     Eigen::VectorXd dTheta = delta.segment(delta.rows()-dimTheta, dimTheta);
@@ -317,7 +344,6 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
     Eigen::VectorXd Y, b;
     Eigen::MatrixXd H, N, PI;
 
-    Eigen::Matrix3d R = state_.getRotation();
     vector<pair<int,int> > remove_contacts;
     vectorKinematics new_contacts;
     vector<int> used_contact_ids;
@@ -373,13 +399,13 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
             H.block(startIndex,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
             H.block(startIndex,6,3,3) = -Eigen::Matrix3d::Identity(); // -I
             H.block(startIndex,3*it_estimated->second-dimTheta,3,3) = Eigen::Matrix3d::Identity(); // I
-
+            
             // Fill out N
             startIndex = N.rows();
             N.conservativeResize(startIndex+3, startIndex+3);
             N.block(startIndex,0,3,startIndex) = Eigen::MatrixXd::Zero(3,startIndex);
             N.block(0,startIndex,startIndex,3) = Eigen::MatrixXd::Zero(startIndex,3);
-            N.block(startIndex,startIndex,3,3) = R * it->covariance.block<3,3>(3,3) * R.transpose();
+            N.block(startIndex,startIndex,3,3) = state_.getRotation() * it->covariance.block<3,3>(3,3) * state_.getRotation().transpose();
 
             // Fill out PI      
             startIndex = PI.rows();
@@ -399,7 +425,6 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
     // Correct state using stacked observation
     Observation obs(Y,b,H,N,PI);
     if (!obs.empty()) {
-        // std::cout << obs << endl; 
         this->CorrectRightInvariant(obs);
     }
 
@@ -442,7 +467,6 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
     if (new_contacts.size() > 0) {
         Eigen::MatrixXd X_aug = state_.getX(); 
         Eigen::MatrixXd P_aug = state_.getP();
-        Eigen::Vector3d p = state_.getPosition();
         for (vectorKinematicsIterator it=new_contacts.begin(); it!=new_contacts.end(); ++it) {
             // Initialize new landmark mean
             int startIndex = X_aug.rows();
@@ -450,15 +474,22 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
             X_aug.block(startIndex,0,1,startIndex) = Eigen::MatrixXd::Zero(1,startIndex);
             X_aug.block(0,startIndex,startIndex,1) = Eigen::MatrixXd::Zero(startIndex,1);
             X_aug(startIndex, startIndex) = 1;
-            X_aug.block(0,startIndex,3,1) = p + R*it->pose.block<3,1>(0,3);
+            X_aug.block(0,startIndex,3,1) = state_.getPosition() + state_.getRotation()*it->pose.block<3,1>(0,3);
 
             // Initialize new landmark covariance - TODO:speed up
             Eigen::MatrixXd F = Eigen::MatrixXd::Zero(state_.dimP()+3,state_.dimP()); 
             F.block(0,0,state_.dimP()-state_.dimTheta(),state_.dimP()-state_.dimTheta()) = Eigen::MatrixXd::Identity(state_.dimP()-state_.dimTheta(),state_.dimP()-state_.dimTheta()); // for old X
-            F.block(state_.dimP()-state_.dimTheta(),6,3,3) = Eigen::Matrix3d::Identity(); // for new contact
             F.block(state_.dimP()-state_.dimTheta()+3,state_.dimP()-state_.dimTheta(),state_.dimTheta(),state_.dimTheta()) = Eigen::MatrixXd::Identity(state_.dimTheta(),state_.dimTheta()); // for theta
             Eigen::MatrixXd G = Eigen::MatrixXd::Zero(F.rows(),3);
-            G.block(G.rows()-state_.dimTheta()-3,0,3,3) = R;
+            // Blocks for new contact
+            if (error_type_==ErrorType::RightInvariant) {
+                F.block(state_.dimP()-state_.dimTheta(),6,3,3) = Eigen::Matrix3d::Identity(); 
+                G.block(G.rows()-state_.dimTheta()-3,0,3,3) = state_.getRotation();
+            } else {
+                F.block(state_.dimP()-state_.dimTheta(),6,3,3) = Eigen::Matrix3d::Identity(); 
+                F.block(state_.dimP()-state_.dimTheta(),0,3,3) = skew(-it->pose.block<3,1>(0,3)); 
+                G.block(G.rows()-state_.dimTheta()-3,0,3,3) = Eigen::Matrix3d::Identity();
+            }
             P_aug = (F*P_aug*F.transpose() + G*it->covariance.block<3,3>(3,3)*G.transpose()).eval(); 
 
             // Update state and covariance
@@ -469,7 +500,6 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
             estimated_contact_positions_.insert(pair<int,int> (it->id, startIndex));
         }
     }
-    return; 
 }
 
 
@@ -478,7 +508,6 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
     Eigen::VectorXd Y, b;
     Eigen::MatrixXd H, N, PI;
 
-    Eigen::Matrix3d R = state_.getRotation();
     vectorLandmarks new_landmarks;
     vector<int> used_landmark_ids;
     
@@ -525,7 +554,7 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
             N.conservativeResize(startIndex+3, startIndex+3);
             N.block(startIndex,0,3,startIndex) = Eigen::MatrixXd::Zero(3,startIndex);
             N.block(0,startIndex,startIndex,3) = Eigen::MatrixXd::Zero(startIndex,3);
-            N.block(startIndex,startIndex,3,3) = R * it->covariance * R.transpose();
+            N.block(startIndex,startIndex,3,3) = state_.getRotation() * it->covariance * state_.getRotation().transpose();
 
             // Fill out PI      
             startIndex = PI.rows();
@@ -570,7 +599,7 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
             N.conservativeResize(startIndex+3, startIndex+3);
             N.block(startIndex,0,3,startIndex) = Eigen::MatrixXd::Zero(3,startIndex);
             N.block(0,startIndex,startIndex,3) = Eigen::MatrixXd::Zero(startIndex,3);
-            N.block(startIndex,startIndex,3,3) = R * it->covariance * R.transpose();
+            N.block(startIndex,startIndex,3,3) = state_.getRotation() * it->covariance * state_.getRotation().transpose();
 
             // Fill out PI      
             startIndex = PI.rows();
@@ -598,7 +627,6 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
     if (new_landmarks.size() > 0) {
         Eigen::MatrixXd X_aug = state_.getX(); 
         Eigen::MatrixXd P_aug = state_.getP();
-        Eigen::Vector3d p = state_.getPosition();
         for (vectorLandmarksIterator it=new_landmarks.begin(); it!=new_landmarks.end(); ++it) {
             // Initialize new landmark mean
             int startIndex = X_aug.rows();
@@ -606,15 +634,22 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
             X_aug.block(startIndex,0,1,startIndex) = Eigen::MatrixXd::Zero(1,startIndex);
             X_aug.block(0,startIndex,startIndex,1) = Eigen::MatrixXd::Zero(startIndex,1);
             X_aug(startIndex, startIndex) = 1;
-            X_aug.block(0,startIndex,3,1) = p + R*it->position;
+            X_aug.block(0,startIndex,3,1) = state_.getPosition() + state_.getRotation()*it->position;
 
             // Initialize new landmark covariance - TODO:speed up
             Eigen::MatrixXd F = Eigen::MatrixXd::Zero(state_.dimP()+3,state_.dimP()); 
             F.block(0,0,state_.dimP()-state_.dimTheta(),state_.dimP()-state_.dimTheta()) = Eigen::MatrixXd::Identity(state_.dimP()-state_.dimTheta(),state_.dimP()-state_.dimTheta()); // for old X
-            F.block(state_.dimP()-state_.dimTheta(),6,3,3) = Eigen::Matrix3d::Identity(); // for new landmark
             F.block(state_.dimP()-state_.dimTheta()+3,state_.dimP()-state_.dimTheta(),state_.dimTheta(),state_.dimTheta()) = Eigen::MatrixXd::Identity(state_.dimTheta(),state_.dimTheta()); // for theta
             Eigen::MatrixXd G = Eigen::MatrixXd::Zero(F.rows(),3);
-            G.block(G.rows()-state_.dimTheta()-3,0,3,3) = R;
+            // Blocks for new landmark
+            if (error_type_==ErrorType::RightInvariant) {
+                F.block(state_.dimP()-state_.dimTheta(),6,3,3) = Eigen::Matrix3d::Identity(); 
+                G.block(G.rows()-state_.dimTheta()-3,0,3,3) = state_.getRotation();
+            } else {
+                F.block(state_.dimP()-state_.dimTheta(),6,3,3) = Eigen::Matrix3d::Identity(); 
+                F.block(state_.dimP()-state_.dimTheta(),0,3,3) = skew(-it->position); 
+                G.block(G.rows()-state_.dimTheta()-3,0,3,3) = Eigen::Matrix3d::Identity();
+            }
             P_aug = (F*P_aug*F.transpose() + G*it->covariance*G.transpose()).eval();
 
             // Update state and covariance
@@ -625,7 +660,6 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
             estimated_landmarks_.insert(pair<int,int> (it->id, startIndex));
         }
     }
-    return;    
 }
 
 

@@ -97,15 +97,8 @@ Eigen::Vector3d InEKF::getMagneticField() const { return magnetic_field_; }
 void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
 
     // Bias corrected IMU measurements
-    Eigen::Matrix<double,6,1> imu_biased;
-    imu_biased(0) = imu(0) + 0.0;
-    imu_biased(1) = imu(1) + 0.0;
-    imu_biased(2) = imu(2) + 0.0;
-    imu_biased(3) = imu(3) - 0.0;
-    imu_biased(4) = imu(4) - 0.0;
-    imu_biased(5) = imu(5) - 0.0;
-    Eigen::Vector3d w = imu_biased.head(3)  - state_.getGyroscopeBias();    // Angular Velocity
-    Eigen::Vector3d a = imu_biased.tail(3) - state_.getAccelerometerBias(); // Linear Acceleration
+    Eigen::Vector3d w = imu.head(3)  - state_.getGyroscopeBias();    // Angular Velocity
+    Eigen::Vector3d a = imu.tail(3) - state_.getAccelerometerBias(); // Linear Acceleration
     
     // Get current state estimate and dimensions
     Eigen::MatrixXd X = state_.getX();

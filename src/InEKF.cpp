@@ -717,7 +717,9 @@ void InEKF::RemoveLandmarks(const std::vector<int> landmark_ids) {
 
 // Keep landmarks by IDs
 void InEKF::KeepLandmarks(const std::vector<int> landmark_ids) {
+    std::cout << std::endl;
     // Loop through estimated landmarks removing ones not found in the list
+    std::vector<int> ids_to_erase;
     for (map<int,int>::iterator it=estimated_landmarks_.begin(); it!=estimated_landmarks_.end(); ++it) {
         std::vector<int>::const_iterator it_found = find(landmark_ids.begin(), landmark_ids.end(), it->first);
         if (it_found==landmark_ids.end()) {
@@ -740,12 +742,16 @@ void InEKF::KeepLandmarks(const std::vector<int> landmark_ids) {
                 if (it2->second > it->second) 
                     it2->second -= 1;
             }
-            // Remove from list of estimated landmark positions (after we are done with iterator)
-            estimated_landmarks_.erase(it->first);
+            // Add to list of ids to erase
+            ids_to_erase.push_back(it->first);
             // Update state and covariance
             state_.setX(X_rem);
             state_.setP(P_rem);   
         }
+    }
+    // Remove from list of estimated landmark positions (after we are done with iterator)
+    for (int i=0; i<ids_to_erase.size(); ++i) {
+        estimated_landmarks_.erase(ids_to_erase[i]);
     }
 }
 

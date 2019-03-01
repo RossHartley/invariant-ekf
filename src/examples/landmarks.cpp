@@ -78,9 +78,9 @@ int main() {
     // prior_landmarks.insert(pair<int,Eigen::Vector3d> (id, p_wl)); 
 
     // Landmark 2
-    id = 2;
-    p_wl << 1,1,-0.5;
-    prior_landmarks.insert(pair<int,Eigen::Vector3d> (id, p_wl)); 
+    // id = 2;
+    // p_wl << 1,1,-0.5;
+    // prior_landmarks.insert(pair<int,Eigen::Vector3d> (id, p_wl)); 
 
     // // Landmark 3
     // id = 3;
@@ -147,5 +147,6 @@ int main() {
 
     // Print final state
     cout << filter.getState() << endl;
+
     return 0;
 }

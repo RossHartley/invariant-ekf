@@ -20,19 +20,36 @@ using namespace std;
 void removeRowAndColumn(Eigen::MatrixXd& M, int index);
 
 // Default constructor
-InEKF::InEKF() : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), magnetic_field_((Eigen::VectorXd(3) << 0,0,0).finished()) {}
+InEKF::InEKF() : 
+    g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), 
+    magnetic_field_((Eigen::VectorXd(3) << 0,0,0).finished()) {}
 
 // Constructor with noise params
-InEKF::InEKF(NoiseParams params) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), magnetic_field_((Eigen::VectorXd(3) << 0,0,0).finished()), noise_params_(params) {}
+InEKF::InEKF(NoiseParams params) : 
+    g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), 
+    magnetic_field_((Eigen::VectorXd(3) << std::cos(1.2049),0,std::sin(1.2049)).finished()), 
+    noise_params_(params) {}
 
 // Constructor with initial state
-InEKF::InEKF(RobotState state) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), magnetic_field_((Eigen::VectorXd(3) << 0,0,0).finished()), state_(state) {}
+InEKF::InEKF(RobotState state) : 
+    g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), 
+    magnetic_field_((Eigen::VectorXd(3) << std::cos(1.2049),0,std::sin(1.2049)).finished()), 
+    state_(state) {}
 
 // Constructor with initial state and noise params
-InEKF::InEKF(RobotState state, NoiseParams params) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), magnetic_field_((Eigen::VectorXd(3) << 0,0,0).finished()), state_(state), noise_params_(params) {}
+InEKF::InEKF(RobotState state, NoiseParams params) : 
+    g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), 
+    magnetic_field_((Eigen::VectorXd(3) << std::cos(1.2049),0,std::sin(1.2049)).finished()), 
+    state_(state), 
+    noise_params_(params) {}
 
 // Constructor with initial state, noise params, and error type
-InEKF::InEKF(RobotState state, NoiseParams params, ErrorType error_type) : g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), magnetic_field_((Eigen::VectorXd(3) << 0,0,0).finished()), state_(state), noise_params_(params), error_type_(error_type) {}
+InEKF::InEKF(RobotState state, NoiseParams params, ErrorType error_type) : 
+    g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()), 
+    magnetic_field_((Eigen::VectorXd(3) << std::cos(1.2049),0,std::sin(1.2049)).finished()), 
+    state_(state), 
+    noise_params_(params), 
+    error_type_(error_type) {}
 
 // Clear all data in the filter
 void InEKF::clear() {
@@ -694,6 +711,41 @@ void InEKF::RemoveLandmarks(const std::vector<int> landmark_ids) {
     // Loop over landmark_ids and remove
     for (int i=0; i<landmark_ids.size(); ++i) {
         this->RemoveLandmarks(landmark_ids[i]);
+    }
+}
+
+
+// Keep landmarks by IDs
+void InEKF::KeepLandmarks(const std::vector<int> landmark_ids) {
+    // Loop through estimated landmarks removing ones not found in the list
+    for (map<int,int>::iterator it=estimated_landmarks_.begin(); it!=estimated_landmarks_.end(); ++it) {
+        std::vector<int>::const_iterator it_found = find(landmark_ids.begin(), landmark_ids.end(), it->first);
+        if (it_found==landmark_ids.end()) {
+            // Get current X and P
+            Eigen::MatrixXd X_rem = state_.getX(); 
+            Eigen::MatrixXd P_rem = state_.getP();
+            // Remove row and column from X
+            removeRowAndColumn(X_rem, it->second);
+            // Remove 3 rows and columns from P
+            int startIndex = 3 + 3*(it->second-3);
+            removeRowAndColumn(P_rem, startIndex); // TODO: Make more efficient
+            removeRowAndColumn(P_rem, startIndex); // TODO: Make more efficient
+            removeRowAndColumn(P_rem, startIndex); // TODO: Make more efficient
+            // Update all indices for estimated_landmarks and estimated_contact_positions (TODO: speed this up)
+            for (map<int,int>::iterator it2=estimated_landmarks_.begin(); it2!=estimated_landmarks_.end(); ++it2) {
+                if (it2->second > it->second) 
+                    it2->second -= 1;
+            }
+            for (map<int,int>::iterator it2=estimated_contact_positions_.begin(); it2!=estimated_contact_positions_.end(); ++it2) {
+                if (it2->second > it->second) 
+                    it2->second -= 1;
+            }
+            // Remove from list of estimated landmark positions (after we are done with iterator)
+            estimated_landmarks_.erase(it->first);
+            // Update state and covariance
+            state_.setX(X_rem);
+            state_.setP(P_rem);   
+        }
     }
 }
 

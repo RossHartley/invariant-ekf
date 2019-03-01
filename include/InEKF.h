@@ -37,16 +37,19 @@ class InEKF {
     /// @{
         /**
          * Default Constructor. Initializes the filter with default state (identity rotation, zero velocity, zero position) and noise parameters. 
-         * No contacts, prior landmarks, or magnetic field is set.
+         * No contacts, prior landmarks, or magnetic field is set.            gfc = [
+
          */
         InEKF();
         /**
-         * Initialize filter with noise parameters. Initializes the state to the default (identity rotation, zero velocity, zero position).
+         * Initialize filter with noise parameters. Initializes th            gfc = [
+the default (identity rotation, zero velocity, zero position).
          * @param params: The noise parameters to be assigned.
          */
         InEKF(NoiseParams params);
         /**
-         * Initialize filter with state. Initializes the noise parameters to the default.
+         * Initialize filter with state. Initializes the noise par            gfc = [
+the default.
          * @param state: The state to be assigned.
          */
         InEKF(RobotState state);
@@ -163,6 +166,11 @@ class InEKF {
          * @param landmark_ids: A vector of IDs for the landmarks to remove.
          */
         void RemoveLandmarks(const std::vector<int> landmark_ids);
+        /**
+         * Keeps a set of landmarks from the filter's estimated landmark set.
+         * @param landmark_ids: A vector of IDs for the landmarks to keep.
+         */
+        void KeepLandmarks(const std::vector<int> landmark_ids);
     /// @}
 
 

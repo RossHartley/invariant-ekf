@@ -292,12 +292,12 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
             X_pred.block<3,1>(0,i) = G0t*X.block<3,1>(0,i);
         }
     } 
-    // ---------------------------------------------------- // 
 
-    // Set new state
+    //  ------------ Update State --------------- // 
     state_.setX(X_pred);
     state_.setP(P_pred);      
 }
+
 
 // Correct State: Right-Invariant Observation
 void InEKF::CorrectRightInvariant(const Eigen::MatrixXd& Z, const Eigen::MatrixXd& H, const Eigen::MatrixXd& N) {
@@ -401,120 +401,6 @@ void InEKF::CorrectLeftInvariant(const Eigen::MatrixXd& Z, const Eigen::MatrixXd
     state_.setP(P_new); 
 }   
 
-// Correct State: Right-Invariant Observation
-void InEKF::CorrectRightInvariant(const Observation& obs) {
-    // Get current state estimate
-    Eigen::MatrixXd X = state_.getX();
-    Eigen::VectorXd Theta = state_.getTheta();
-    Eigen::MatrixXd P = state_.getP();
-    int dimX = state_.dimX();
-    int dimTheta = state_.dimTheta();
-    int dimP = state_.dimP();
-
-    // Map from left invariant to right invariant error temporarily
-    if (error_type_==ErrorType::LeftInvariant) {
-        Eigen::MatrixXd Adj = Eigen::MatrixXd::Identity(dimP,dimP);
-        Adj.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(X); 
-        P = (Adj * P * Adj.transpose()).eval(); 
-    }
-
-    // Compute Kalman Gain
-    Eigen::MatrixXd PHT = P * obs.H.transpose();
-    Eigen::MatrixXd S = obs.H * PHT + obs.N;
-    Eigen::MatrixXd K = PHT * S.inverse();
-
-    // Copy X along the diagonals if more than one measurement
-    Eigen::MatrixXd BigX;
-    state_.copyDiagX(obs.Y.rows()/dimX, BigX);
-   
-    // Compute correction terms
-    Eigen::MatrixXd Z = BigX*obs.Y - obs.b;
-    Eigen::VectorXd delta = K*obs.PI*Z;
-    Eigen::MatrixXd dX = Exp_SEK3(delta.segment(0,delta.rows()-dimTheta));
-    Eigen::VectorXd dTheta = delta.segment(delta.rows()-dimTheta, dimTheta);
-
-    // Update state
-    Eigen::MatrixXd X_new = dX*X; // Right-Invariant Update
-    Eigen::VectorXd Theta_new = Theta + dTheta;
-
-    // Set new state  
-    state_.setX(X_new); 
-    state_.setTheta(Theta_new);
-
-    // Update Covariance
-    Eigen::MatrixXd IKH = Eigen::MatrixXd::Identity(dimP,dimP) - K*obs.H;
-    Eigen::MatrixXd P_new = IKH * P * IKH.transpose() + K*obs.N*K.transpose(); // Joseph update form
-
-    // Map from right invariant back to left invariant error
-    if (error_type_==ErrorType::LeftInvariant) {
-        Eigen::MatrixXd AdjInv = Eigen::MatrixXd::Identity(dimP,dimP);
-        AdjInv.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(state_.Xinv()); 
-        P_new = (AdjInv * P_new * AdjInv.transpose()).eval();
-    }
-
-    // Set new covariance
-    state_.setP(P_new); 
-}   
-
-
-// Correct State: Left-Invariant Observation
-void InEKF::CorrectLeftInvariant(const Observation& obs) {
-
-    // Get current state estimate
-    Eigen::MatrixXd X = state_.getX();
-    Eigen::VectorXd Theta = state_.getTheta();
-    Eigen::MatrixXd P = state_.getP();
-    int dimX = state_.dimX();
-    int dimTheta = state_.dimTheta();
-    int dimP = state_.dimP();
-
-    // Map from right invariant to left invariant error temporarily
-    if (error_type_==ErrorType::RightInvariant) {
-        Eigen::MatrixXd AdjInv = Eigen::MatrixXd::Identity(dimP,dimP);
-        AdjInv.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(state_.Xinv()); 
-        P = (AdjInv * P * AdjInv.transpose()).eval();
-    }
-
-    // Compute Kalman Gain
-    Eigen::MatrixXd PHT = P * obs.H.transpose();
-    Eigen::MatrixXd S = obs.H * PHT + obs.N;
-    Eigen::MatrixXd K = PHT * S.inverse();
-
-    // Copy X along the diagonals if more than one measurement
-    Eigen::MatrixXd BigXinv;
-    state_.copyDiagXinv(obs.Y.rows()/dimX, BigXinv);
-
-    // Compute correction terms
-    Eigen::MatrixXd Z = BigXinv*obs.Y - obs.b;
-
-    Eigen::VectorXd delta = K*obs.PI*Z;
-    Eigen::MatrixXd dX = Exp_SEK3(delta.segment(0,delta.rows()-dimTheta));
-    Eigen::VectorXd dTheta = delta.segment(delta.rows()-dimTheta, dimTheta);
-
-    // Update state
-    Eigen::MatrixXd X_new = X*dX; // Left-Invariant Update
-    Eigen::VectorXd Theta_new = Theta + dTheta;
-
-    // Set new state
-    state_.setX(X_new); 
-    state_.setTheta(Theta_new);
-
-    // Update Covariance
-    Eigen::MatrixXd IKH = Eigen::MatrixXd::Identity(dimP,dimP) - K*obs.H;
-    Eigen::MatrixXd P_new = IKH * P * IKH.transpose() + K*obs.N*K.transpose(); // Joseph update form
-
-    // Map from left invariant back to right invariant error
-    if (error_type_==ErrorType::RightInvariant) {
-        Eigen::MatrixXd Adj = Eigen::MatrixXd::Identity(dimP,dimP);
-        Adj.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(X_new); 
-        P_new = (Adj * P_new * Adj.transpose()).eval(); 
-    }
-
-    // Set new covariance
-    state_.setP(P_new); 
-}   
-
-
 // Correct state using kinematics measured between imu and contact point
 void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
     Eigen::VectorXd Z, Y, b;
@@ -554,22 +440,6 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
             int dimP = state_.dimP();
             int startIndex;
 
-            // // Fill out Y
-            // startIndex = Y.rows();
-            // Y.conservativeResize(startIndex+dimX, Eigen::NoChange);
-            // Y.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
-            // Y.segment(startIndex,3) = it->pose.block<3,1>(0,3); // p_bc
-            // Y(startIndex+4) = 1; 
-            // Y(startIndex+it_estimated->second) = -1;       
-
-            // // Fill out b
-            // startIndex = b.rows();
-            // b.conservativeResize(startIndex+dimX, Eigen::NoChange);
-            // b.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
-            // b(startIndex+4) = 1;       
-            // b(startIndex+it_estimated->second) = -1;       
-
-
             // Fill out H
             startIndex = H.rows();
             H.conservativeResize(startIndex+3, dimP);
@@ -589,16 +459,6 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
             N.block(0,startIndex,startIndex,3) = Eigen::MatrixXd::Zero(startIndex,3);
             N.block(startIndex,startIndex,3,3) = state_.getWorldRotation() * it->covariance.block<3,3>(3,3) * state_.getWorldRotation().transpose();
     
-
-            // // Fill out PI      
-            // startIndex = PI.rows();
-            // int startIndex2 = PI.cols();
-            // PI.conservativeResize(startIndex+3, startIndex2+dimX);
-            // PI.block(startIndex,0,3,startIndex2) = Eigen::MatrixXd::Zero(3,startIndex2);
-            // PI.block(0,startIndex2,startIndex,dimX) = Eigen::MatrixXd::Zero(startIndex,dimX);
-            // PI.block(startIndex,startIndex2,3,dimX) = Eigen::MatrixXd::Zero(3,dimX);
-            // PI.block(startIndex,startIndex2,3,3) = Eigen::Matrix3d::Identity();
-
             // Fill out Z
             startIndex = Z.rows();
             Z.conservativeResize(startIndex+3, Eigen::NoChange);
@@ -618,8 +478,6 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
     }
 
     // Correct state using stacked observation
-    Observation obs(Y,b,H,N,PI);
-    // if (!obs.empty()) {
     if (Z.rows()>0) {
         if (state_.getStateType() == StateType::WorldCentric) {
             this->CorrectRightInvariant(Z,H,N);
@@ -712,7 +570,7 @@ void InEKF::CorrectKinematics(const vectorKinematics& measured_kinematics) {
 
 // Create Observation from vector of landmark measurements
 void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
-    Eigen::VectorXd Y, b;
+    Eigen::VectorXd Z, Y, b;
     Eigen::MatrixXd H, N, PI;
 
     vectorLandmarks new_landmarks;
@@ -735,42 +593,36 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
             int dimP = state_.dimP();
             int startIndex;
 
-            // Fill out Y
-            startIndex = Y.rows();
-            Y.conservativeResize(startIndex+dimX, Eigen::NoChange);
-            Y.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
-            Y.segment(startIndex,3) = it->position; // p_bl
-            Y(startIndex+4) = 1; 
-
-            // Fill out b
-            startIndex = b.rows();
-            b.conservativeResize(startIndex+dimX, Eigen::NoChange);
-            b.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
-            b.segment(startIndex,3) = it_prior->second; // p_wl
-            b(startIndex+4) = 1;       
-
             // Fill out H
             startIndex = H.rows();
             H.conservativeResize(startIndex+3, dimP);
             H.block(startIndex,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
-            H.block(startIndex,0,3,3) = skew(it_prior->second); // skew(p_wl)
-            H.block(startIndex,6,3,3) = -Eigen::Matrix3d::Identity(); // -I
-
+            if (state_.getStateType() == StateType::WorldCentric) {
+                H.block(startIndex,0,3,3) = skew(it_prior->second); // skew(p_wl)
+                H.block(startIndex,6,3,3) = -Eigen::Matrix3d::Identity(); // -I    
+            } else {
+                H.block(startIndex,0,3,3) = skew(-it_prior->second); // -skew(p_wl)
+                H.block(startIndex,6,3,3) = Eigen::Matrix3d::Identity(); // I    
+            }
+            
             // Fill out N
             startIndex = N.rows();
             N.conservativeResize(startIndex+3, startIndex+3);
             N.block(startIndex,0,3,startIndex) = Eigen::MatrixXd::Zero(3,startIndex);
             N.block(0,startIndex,startIndex,3) = Eigen::MatrixXd::Zero(startIndex,3);
-            N.block(startIndex,startIndex,3,3) = state_.getRotation() * it->covariance * state_.getRotation().transpose();
-
-            // Fill out PI      
-            startIndex = PI.rows();
-            int startIndex2 = PI.cols();
-            PI.conservativeResize(startIndex+3, startIndex2+dimX);
-            PI.block(startIndex,0,3,startIndex2) = Eigen::MatrixXd::Zero(3,startIndex2);
-            PI.block(0,startIndex2,startIndex,dimX) = Eigen::MatrixXd::Zero(startIndex,dimX);
-            PI.block(startIndex,startIndex2,3,dimX) = Eigen::MatrixXd::Zero(3,dimX);
-            PI.block(startIndex,startIndex2,3,3) = Eigen::Matrix3d::Identity();
+            N.block(startIndex,startIndex,3,3) = state_.getWorldRotation() * it->covariance * state_.getWorldRotation().transpose();
+    
+            // Fill out Z
+            startIndex = Z.rows();
+            Z.conservativeResize(startIndex+3, Eigen::NoChange);
+            Eigen::Matrix3d R = state_.getRotation();
+            Eigen::Vector3d p = state_.getPosition();
+            Eigen::Vector3d l = state_.getVector(it_estimated->second);  
+            if (state_.getStateType() == StateType::WorldCentric) {
+                Z.segment(startIndex,3) = R*it->position - (l - it_prior->second); 
+            } else {
+                Z.segment(startIndex,3) = R.transpose()*(it->position - (p - it_prior->second)); 
+            }            
 
         } else if (it_estimated!=estimated_landmarks_.end()) {;
             // Found in estimated landmark set
@@ -779,44 +631,36 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
             int dimP = state_.dimP();
             int startIndex;
 
-            // Fill out Y
-            startIndex = Y.rows();
-            Y.conservativeResize(startIndex+dimX, Eigen::NoChange);
-            Y.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
-            Y.segment(startIndex,3) = it->position; // p_bl
-            Y(startIndex+4) = 1; 
-            Y(startIndex+it_estimated->second) = -1;       
-
-            // Fill out b
-            startIndex = b.rows();
-            b.conservativeResize(startIndex+dimX, Eigen::NoChange);
-            b.segment(startIndex,dimX) = Eigen::VectorXd::Zero(dimX);
-            b(startIndex+4) = 1;       
-            b(startIndex+it_estimated->second) = -1;       
-
             // Fill out H
             startIndex = H.rows();
             H.conservativeResize(startIndex+3, dimP);
             H.block(startIndex,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
-            H.block(startIndex,6,3,3) = -Eigen::Matrix3d::Identity(); // -I
-            H.block(startIndex,3*it_estimated->second-dimTheta,3,3) = Eigen::Matrix3d::Identity(); // I
-
+            if (state_.getStateType() == StateType::WorldCentric) {
+                H.block(startIndex,6,3,3) = -Eigen::Matrix3d::Identity(); // -I
+                H.block(startIndex,3*it_estimated->second-dimTheta,3,3) = Eigen::Matrix3d::Identity(); // I
+            } else {
+                H.block(startIndex,6,3,3) = Eigen::Matrix3d::Identity(); // I
+                H.block(startIndex,3*it_estimated->second-dimTheta,3,3) = -Eigen::Matrix3d::Identity(); // -I
+            }
+            
             // Fill out N
             startIndex = N.rows();
             N.conservativeResize(startIndex+3, startIndex+3);
             N.block(startIndex,0,3,startIndex) = Eigen::MatrixXd::Zero(3,startIndex);
             N.block(0,startIndex,startIndex,3) = Eigen::MatrixXd::Zero(startIndex,3);
-            N.block(startIndex,startIndex,3,3) = state_.getRotation() * it->covariance * state_.getRotation().transpose();
-
-            // Fill out PI      
-            startIndex = PI.rows();
-            int startIndex2 = PI.cols();
-            PI.conservativeResize(startIndex+3, startIndex2+dimX);
-            PI.block(startIndex,0,3,startIndex2) = Eigen::MatrixXd::Zero(3,startIndex2);
-            PI.block(0,startIndex2,startIndex,dimX) = Eigen::MatrixXd::Zero(startIndex,dimX);
-            PI.block(startIndex,startIndex2,3,dimX) = Eigen::MatrixXd::Zero(3,dimX);
-            PI.block(startIndex,startIndex2,3,3) = Eigen::Matrix3d::Identity();
-
+            N.block(startIndex,startIndex,3,3) = state_.getWorldRotation() * it->covariance * state_.getWorldRotation().transpose();
+    
+            // Fill out Z
+            startIndex = Z.rows();
+            Z.conservativeResize(startIndex+3, Eigen::NoChange);
+            Eigen::Matrix3d R = state_.getRotation();
+            Eigen::Vector3d p = state_.getPosition();
+            Eigen::Vector3d l = state_.getVector(it_estimated->second);  
+            if (state_.getStateType() == StateType::WorldCentric) {
+                Z.segment(startIndex,3) = R*it->position - (l - p); 
+            } else {
+                Z.segment(startIndex,3) = R.transpose()*(it->position - (p - l)); 
+            }           
 
         } else {
             // First time landmark as been detected (add to list for later state augmentation)
@@ -825,9 +669,12 @@ void InEKF::CorrectLandmarks(const vectorLandmarks& measured_landmarks) {
     }
 
     // Correct state using stacked observation
-    Observation obs(Y,b,H,N,PI);
-    if (!obs.empty()) {
-        this->CorrectRightInvariant(obs);
+    if (Z.rows()>0) {
+        if (state_.getStateType() == StateType::WorldCentric) {
+            this->CorrectRightInvariant(Z,H,N);
+        } else {
+            this->CorrectLeftInvariant(Z,H,N);
+        }
     }
 
     // Augment state with newly detected landmarks
@@ -975,120 +822,120 @@ void InEKF::RemovePriorLandmarks(const std::vector<int> landmark_ids) {
 
 // Corrects state using magnetometer measurements (Right Invariant)
 void InEKF::CorrectMagnetometer(const Eigen::Vector3d& measured_magnetic_field, const Eigen::Matrix3d& covariance) {
-    Eigen::VectorXd Y, b;
-    Eigen::MatrixXd H, N, PI;
+    // Eigen::VectorXd Y, b;
+    // Eigen::MatrixXd H, N, PI;
 
-    // Get Rotation Estimate
-    Eigen::Matrix3d R = state_.getRotation();
+    // // Get Rotation Estimate
+    // Eigen::Matrix3d R = state_.getRotation();
 
-    // Fill out observation data
-    int dimX = state_.dimX();
-    int dimTheta = state_.dimTheta();
-    int dimP = state_.dimP();
+    // // Fill out observation data
+    // int dimX = state_.dimX();
+    // int dimTheta = state_.dimTheta();
+    // int dimP = state_.dimP();
 
-    // Fill out Y
-    Y.conservativeResize(dimX, Eigen::NoChange);
-    Y.segment(0,dimX) = Eigen::VectorXd::Zero(dimX);
-    Y.segment<3>(0) = measured_magnetic_field;
+    // // Fill out Y
+    // Y.conservativeResize(dimX, Eigen::NoChange);
+    // Y.segment(0,dimX) = Eigen::VectorXd::Zero(dimX);
+    // Y.segment<3>(0) = measured_magnetic_field;
 
-    // Fill out b
-    b.conservativeResize(dimX, Eigen::NoChange);
-    b.segment(0,dimX) = Eigen::VectorXd::Zero(dimX);
-    b.segment<3>(0) = magnetic_field_;
+    // // Fill out b
+    // b.conservativeResize(dimX, Eigen::NoChange);
+    // b.segment(0,dimX) = Eigen::VectorXd::Zero(dimX);
+    // b.segment<3>(0) = magnetic_field_;
 
-    // Fill out H
-    H.conservativeResize(3, dimP);
-    H.block(0,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
-    H.block<3,3>(0,0) = skew(magnetic_field_); 
+    // // Fill out H
+    // H.conservativeResize(3, dimP);
+    // H.block(0,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
+    // H.block<3,3>(0,0) = skew(magnetic_field_); 
 
-    // Fill out N
-    N.conservativeResize(3, 3);
-    N = R * covariance * R.transpose();
+    // // Fill out N
+    // N.conservativeResize(3, 3);
+    // N = R * covariance * R.transpose();
 
-    // Fill out PI      
-    PI.conservativeResize(3, dimX);
-    PI.block(0,0,3,dimX) = Eigen::MatrixXd::Zero(3,dimX);
-    PI.block(0,0,3,3) = Eigen::Matrix3d::Identity();
+    // // Fill out PI      
+    // PI.conservativeResize(3, dimX);
+    // PI.block(0,0,3,dimX) = Eigen::MatrixXd::Zero(3,dimX);
+    // PI.block(0,0,3,3) = Eigen::Matrix3d::Identity();
     
 
-    // Correct state using stacked observation
-    Observation obs(Y,b,H,N,PI);
-    if (!obs.empty()) {
-        this->CorrectRightInvariant(obs);
-        // cout << obs << endl;
-    }
+    // // Correct state using stacked observation
+    // Observation obs(Y,b,H,N,PI);
+    // if (!obs.empty()) {
+    //     this->CorrectRightInvariant(obs);
+    //     // cout << obs << endl;
+    // }
 }
 
 
 // Observation of absolute position - GPS (Left-Invariant Measurement)
 void InEKF::CorrectPosition(const Eigen::Vector3d& measured_position, const Eigen::Matrix3d& covariance, const Eigen::Vector3d& indices) {
-    Eigen::VectorXd Y, b;
-    Eigen::MatrixXd H, N, PI;
+    // Eigen::VectorXd Y, b;
+    // Eigen::MatrixXd H, N, PI;
 
-    // Fill out observation data
-    int dimX = state_.dimX();
-    int dimTheta = state_.dimTheta();
-    int dimP = state_.dimP();
+    // // Fill out observation data
+    // int dimX = state_.dimX();
+    // int dimTheta = state_.dimTheta();
+    // int dimP = state_.dimP();
 
-    // Fill out Y
-    Y.conservativeResize(dimX, Eigen::NoChange);
-    Y.segment(0,dimX) = Eigen::VectorXd::Zero(dimX);
-    Y.segment<3>(0) = measured_position;
-    Y(4) = 1;       
+    // // Fill out Y
+    // Y.conservativeResize(dimX, Eigen::NoChange);
+    // Y.segment(0,dimX) = Eigen::VectorXd::Zero(dimX);
+    // Y.segment<3>(0) = measured_position;
+    // Y(4) = 1;       
 
-    // Fill out b
-    b.conservativeResize(dimX, Eigen::NoChange);
-    b.segment(0,dimX) = Eigen::VectorXd::Zero(dimX);
-    b(4) = 1;       
+    // // Fill out b
+    // b.conservativeResize(dimX, Eigen::NoChange);
+    // b.segment(0,dimX) = Eigen::VectorXd::Zero(dimX);
+    // b(4) = 1;       
 
-    // Fill out H
-    H.conservativeResize(3, dimP);
-    H.block(0,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
-    H.block<3,3>(0,6) = Eigen::Matrix3d::Identity(); 
+    // // Fill out H
+    // H.conservativeResize(3, dimP);
+    // H.block(0,0,3,dimP) = Eigen::MatrixXd::Zero(3,dimP);
+    // H.block<3,3>(0,6) = Eigen::Matrix3d::Identity(); 
 
-    // Fill out N
-    N.conservativeResize(3, 3);
-    N = covariance;
+    // // Fill out N
+    // N.conservativeResize(3, 3);
+    // N = covariance;
 
-    // Fill out PI      
-    PI.conservativeResize(3, dimX);
-    PI.block(0,0,3,dimX) = Eigen::MatrixXd::Zero(3,dimX);
-    PI.block(0,0,3,3) = Eigen::Matrix3d::Identity();
+    // // Fill out PI      
+    // PI.conservativeResize(3, dimX);
+    // PI.block(0,0,3,dimX) = Eigen::MatrixXd::Zero(3,dimX);
+    // PI.block(0,0,3,3) = Eigen::Matrix3d::Identity();
 
-    // Modify measurement based on chosen indices
-    const double HIGH_UNCERTAINTY = 1e6;
-    Eigen::Vector3d p = state_.getPosition();
-    if (!indices(0)) { 
-        Y(0) = p(0);
-        N(0,0) = HIGH_UNCERTAINTY;
-        N(0,1) = 0;
-        N(0,2) = 0;
-        N(1,0) = 0;
-        N(2,0) = 0;
-        } 
-    if (!indices(1)) { 
-        Y(1) = p(1);
-        N(1,0) = 0;
-        N(1,1) = HIGH_UNCERTAINTY;
-        N(1,2) = 0;
-        N(0,1) = 0;
-        N(2,1) = 0;
-        } 
-    if (!indices(2)) { 
-        Y(2) = p(2);
-        N(2,0) = 0;
-        N(2,1) = 0;
-        N(2,2) = HIGH_UNCERTAINTY;
-        N(0,2) = 0;
-        N(1,2) = 0;
-        } 
+    // // Modify measurement based on chosen indices
+    // const double HIGH_UNCERTAINTY = 1e6;
+    // Eigen::Vector3d p = state_.getPosition();
+    // if (!indices(0)) { 
+    //     Y(0) = p(0);
+    //     N(0,0) = HIGH_UNCERTAINTY;
+    //     N(0,1) = 0;
+    //     N(0,2) = 0;
+    //     N(1,0) = 0;
+    //     N(2,0) = 0;
+    //     } 
+    // if (!indices(1)) { 
+    //     Y(1) = p(1);
+    //     N(1,0) = 0;
+    //     N(1,1) = HIGH_UNCERTAINTY;
+    //     N(1,2) = 0;
+    //     N(0,1) = 0;
+    //     N(2,1) = 0;
+    //     } 
+    // if (!indices(2)) { 
+    //     Y(2) = p(2);
+    //     N(2,0) = 0;
+    //     N(2,1) = 0;
+    //     N(2,2) = HIGH_UNCERTAINTY;
+    //     N(0,2) = 0;
+    //     N(1,2) = 0;
+    //     } 
 
-    // Correct state using stacked observation
-    Observation obs(Y,b,H,N,PI);
-    if (!obs.empty()) {
-        this->CorrectLeftInvariant(obs);
-        // cout << obs << endl;
-    }
+    // // Correct state using stacked observation
+    // Observation obs(Y,b,H,N,PI);
+    // if (!obs.empty()) {
+    //     this->CorrectLeftInvariant(obs);
+    //     // cout << obs << endl;
+    // }
 }
 
 

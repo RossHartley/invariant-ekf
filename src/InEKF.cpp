@@ -165,6 +165,14 @@ Eigen::MatrixXd InEKF::StateTransitionMatrix(Eigen::Vector3d& w, Eigen::Vector3d
         - ((6*thetadt2+16*costhetadt-cos2thetadt-15)/(8*theta6))*(wx2*ax*wx)
         + ((4*thetadt3+6*thetadt-24*sinthetadt-3*sin2thetadt+24*thetadtcosthetadt)/(24*theta7))*(wx2*ax*wx2) );
 
+    
+    // TODO: Get better approximation using taylor series when theta < tol
+    const double tol =  1e-6;
+    if (theta < tol) {
+        Phi25L = (1/2)*ax*dt2;
+        Phi35L = (1/6)*ax*dt3;
+    }
+
     // Fill out analytical state transition matrices
     if  ((state_.getStateType() == StateType::WorldCentric && error_type_ == ErrorType::LeftInvariant) || 
          (state_.getStateType() == StateType::BodyCentric && error_type_ == ErrorType::RightInvariant)) {

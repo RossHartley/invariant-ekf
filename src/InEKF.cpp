@@ -110,7 +110,7 @@ void InEKF::setMagneticField(Eigen::Vector3d& true_magnetic_field) { magnetic_fi
 // Get the true magnetic field
 Eigen::Vector3d InEKF::getMagneticField() const { return magnetic_field_; }
 
-// Get Analytical state transition matrix
+// Compute Analytical state transition matrix
 Eigen::MatrixXd InEKF::StateTransitionMatrix(Eigen::Vector3d& w, Eigen::Vector3d& a, double dt) {
     Eigen::Vector3d phi = w*dt;
     Eigen::Matrix3d G0 = Gamma_SO3(phi,0); // Computation can be sped up by computing G0,G1,G2 all at once
@@ -184,156 +184,44 @@ Eigen::MatrixXd InEKF::StateTransitionMatrix(Eigen::Vector3d& w, Eigen::Vector3d
         Phi.block<3,3>(3,dimP-dimTheta+3) = -G1t*dt; // Phi_26
         Phi.block<3,3>(6,dimP-dimTheta+3) = -G0t*G2*dt2; // Phi_36
     } else {
-        // Compute right-invariant state transition matrix (this assumes the mean has aleady been propagated)
+        // Compute right-invariant state transition matrix (Assumes unpropagated state)
         Eigen::Matrix3d gx = skew(g_);
         Eigen::Matrix3d R = state_.getRotation();
-        Eigen::Matrix3d RG1tdt = R*G1t*dt;
+        Eigen::Vector3d v = state_.getVelocity();
+        Eigen::Vector3d p = state_.getPosition();
+        Eigen::Matrix3d RG0 = R*G0;
+        Eigen::Matrix3d RG1dt = R*G1*dt;
+        Eigen::Matrix3d RG2dt2 = R*G2*dt2;
         Phi.block<3,3>(3,0) = gx*dt; // Phi_21
         Phi.block<3,3>(6,0) = 0.5*gx*dt2; // Phi_31
         Phi.block<3,3>(6,3) = Eigen::Matrix3d::Identity()*dt; // Phi_32
-        Phi.block<3,3>(0,dimP-dimTheta) = -RG1tdt; // Phi_15
-        Phi.block<3,3>(3,dimP-dimTheta) = -skew(state_.getVelocity())*RG1tdt + R*Phi25L; // Phi_25
-        Phi.block<3,3>(6,dimP-dimTheta) = -skew(state_.getPosition())*RG1tdt + R*Phi35L; // Phi_35
+        Phi.block<3,3>(0,dimP-dimTheta) = -RG1dt; // Phi_15
+        Phi.block<3,3>(3,dimP-dimTheta) = -skew(v+RG1dt*a+g_*dt)*RG1dt + RG0*Phi25L; // Phi_25
+        Phi.block<3,3>(6,dimP-dimTheta) = -skew(p+v*dt+RG2dt2*a+0.5*g_*dt2)*RG1dt + RG0*Phi35L; // Phi_35
         for (int i=5; i<dimX; ++i) {
-            Phi.block<3,3>((i-2)*3,dimP-dimTheta) = -skew(state_.getVector(i))*RG1tdt; // Phi_(3+i)5
+            Phi.block<3,3>((i-2)*3,dimP-dimTheta) = -skew(state_.getVector(i))*RG1dt; // Phi_(3+i)5
         }
-        Phi.block<3,3>(3,dimP-dimTheta+3) = -RG1tdt; // Phi_26
-        Phi.block<3,3>(6,dimP-dimTheta+3) = -R*G0t*G2*dt2; // Phi_36
+        Phi.block<3,3>(3,dimP-dimTheta+3) = -RG1dt; // Phi_26
+        Phi.block<3,3>(6,dimP-dimTheta+3) = -RG2dt2; // Phi_36
     }
     return Phi;
 }
 
-// InEKF Propagation - Inertial Data
-void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
 
-    // Bias corrected IMU measurements
-    Eigen::Vector3d w = imu.head(3)  - state_.getGyroscopeBias();    // Angular Velocity
-    Eigen::Vector3d a = imu.tail(3) - state_.getAccelerometerBias(); // Linear Acceleration
-    
-    // Get current state estimate and dimensions
-    Eigen::MatrixXd X = state_.getX();
-    Eigen::MatrixXd Xinv = state_.Xinv();
-    Eigen::MatrixXd Xworld = state_.getWorldX();
-    Eigen::MatrixXd P = state_.getP();
+// Compute Discrete noise matrix
+Eigen::MatrixXd InEKF::DiscreteNoiseMatrix(Eigen::MatrixXd& Phi, double dt){
     int dimX = state_.dimX();
-    int dimP = state_.dimP();
     int dimTheta = state_.dimTheta();
-
-    // Extract State
-    Eigen::Matrix3d R = state_.getRotation();
-    Eigen::Vector3d v = state_.getVelocity();
-    Eigen::Vector3d p = state_.getPosition();
-
-    //  ---- Nonlinear Strapdown IMU dynamics model -----
-    Eigen::Vector3d phi = w*dt;
-    Eigen::Matrix3d G0 = Gamma_SO3(phi,0); // Computation can be sped up by computing G0,G1,G2 all at once
-    Eigen::Matrix3d G1 = Gamma_SO3(phi,1);
-    Eigen::Matrix3d G2 = Gamma_SO3(phi,2);
-
-    if (state_.getStateType() == StateType::WorldCentric) {
-        // Propagate world-centric state estimate
-        Eigen::Matrix3d R_pred = R * G0;
-        Eigen::Vector3d v_pred = v + (R*G1*a + g_)*dt;
-        Eigen::Vector3d p_pred = p + v*dt + (R*G2*a + 0.5*g_)*dt*dt;
-        // Set new state
-        state_.setRotation(R_pred);
-        state_.setVelocity(v_pred);
-        state_.setPosition(p_pred);
-    } else {
-        // Propagate body-centric state estimate
-        Eigen::MatrixXd X_pred = X;
-        Eigen::Matrix3d G0t = G0.transpose();
-        X_pred.block<3,3>(0,0) = G0t*R;
-        X_pred.block<3,1>(0,3) = G0t*(v - (G1*a + R*g_)*dt);
-        X_pred.block<3,1>(0,4) = G0t*(p + v*dt - (G2*a + 0.5*R*g_)*dt*dt);
-        for (int i=5; i<dimX; ++i) {
-            X_pred.block<3,1>(0,i) = G0t*X.block<3,1>(0,i);
-        }
-        // Set new state
-        state_.setX(X_pred);
-    }
-
-    //  ------ Linearization (TODO: Compute analytical) -------- //
-    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(dimP,dimP);
+    int dimP = state_.dimP();    
     Eigen::MatrixXd G = Eigen::MatrixXd::Identity(dimP,dimP);
-    Eigen::MatrixXd Phi = Eigen::MatrixXd::Identity(dimP,dimP);
 
-    // Log-Linear dynamics matrix
-    if  ((state_.getStateType() == StateType::WorldCentric && error_type_ == ErrorType::LeftInvariant) || 
-         (state_.getStateType() == StateType::BodyCentric && error_type_ == ErrorType::RightInvariant)) {
-        
-        // Diagonal terms
-        for (int i=0; i<(dimX-2); ++i) {
-            A.block<3,3>(3*i,3*i) = skew(-w);
-        } 
-        // Off Diagonal terms
-        A.block<3,3>(3,0) = skew(-a); 
-        A.block<3,3>(6,3) = Eigen::Matrix3d::Identity();
-        if (state_.getStateType() == StateType::WorldCentric) {
-            A.block<3,3>(0,dimP-dimTheta) = -Eigen::Matrix3d::Identity();
-            A.block<3,3>(3,dimP-dimTheta+3) = -Eigen::Matrix3d::Identity();
-        } else {
-            A.block<3,3>(0,dimP-dimTheta) = Eigen::Matrix3d::Identity();
-            A.block<3,3>(3,dimP-dimTheta+3) = Eigen::Matrix3d::Identity();
-        }
-        // State Transition Matrix
-        Eigen::MatrixXd Adt = A*dt; 
-        Phi = Adt.exp(); 
-        // Noise Jacobian is identity
-
-    } else {
-        // --- Not exact (assumes state is constant over dt) ----
-        // // Inertial terms
-        // A.block<3,3>(3,0) = skew(g_); // TODO: Efficiency could be improved by not computing the constant terms every time
-        // A.block<3,3>(6,3) = Eigen::Matrix3d::Identity();
-        // // Bias terms
-        // if (state_.getStateType() == StateType::WorldCentric) {
-        //     A.block<3,3>(0,dimP-dimTheta) = -R;
-        //     A.block<3,3>(3,dimP-dimTheta+3) = -R;
-        //     for (int i=3; i<dimX; ++i) {
-        //         A.block<3,3>(3*i-6,dimP-dimTheta) = -skew(X.block<3,1>(0,i))*R;
-        //     } 
-        // } else {
-        //     A.block<3,3>(0,dimP-dimTheta) = R;
-        //     A.block<3,3>(3,dimP-dimTheta+3) = R;
-        //     for (int i=3; i<dimX; ++i) {
-        //         A.block<3,3>(3*i-6,dimP-dimTheta) = skew(X.block<3,1>(0,i))*R;
-        //     }             
-        // }        
-        // Eigen::MatrixXd Adt = A*dt; 
-        // Phi = Adt.exp(); 
-
-        // --- Exact (uses the left-invariant state transition which can be computed from the matrix exponential) ----
-        // Diagonal terms
-        for (int i=0; i<(dimX-2); ++i) {
-            A.block<3,3>(3*i,3*i) = skew(-w);
-        } 
-        // Off Diagonal terms
-        A.block<3,3>(3,0) = skew(-a); 
-        A.block<3,3>(6,3) = Eigen::Matrix3d::Identity();
-        if (state_.getStateType() == StateType::WorldCentric) {
-            A.block<3,3>(0,dimP-dimTheta) = -Eigen::Matrix3d::Identity();
-            A.block<3,3>(3,dimP-dimTheta+3) = -Eigen::Matrix3d::Identity();
-        } else {
-            A.block<3,3>(0,dimP-dimTheta) = Eigen::Matrix3d::Identity();
-            A.block<3,3>(3,dimP-dimTheta+3) = Eigen::Matrix3d::Identity();
-        }
-        // State Transition Matrix
-        Eigen::MatrixXd Adt = A*dt; 
-        Eigen::MatrixXd AdjXk1 = Eigen::MatrixXd::Identity(dimP,dimP);
-        Eigen::MatrixXd AdjXkInv = Eigen::MatrixXd::Identity(dimP,dimP);
-        AdjXk1.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(state_.getX());
-        AdjXkInv.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(Xinv);
-        Phi = AdjXk1 * Adt.exp() * AdjXkInv; 
-
-        // Noise Jacobian
-        G.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(Xworld);
+    // Compute G using Adjoint of Xk if needed, otherwise identity (Assumes unpropagated state)
+    if  ((state_.getStateType() == StateType::WorldCentric && error_type_ == ErrorType::RightInvariant) || 
+         (state_.getStateType() == StateType::BodyCentric && error_type_ == ErrorType::LeftInvariant)) {
+        G.block(0,0,dimP-dimTheta,dimP-dimTheta) = Adjoint_SEK3(state_.getWorldX()); 
     }
 
-    // Eigen::MatrixXd Phi_anal = this->StateTransitionMatrix(w,a,dt);
-    // std::cout << "error analytical:  " << (Phi_anal-Phi).norm() << "\n";
-
-    // Noise Covariance terms
+    // Continuous noise covariance 
     Eigen::MatrixXd Qc = Eigen::MatrixXd::Zero(dimP,dimP); // Landmark noise terms will remain zero
     Qc.block<3,3>(0,0) = noise_params_.getGyroscopeCov(); 
     Qc.block<3,3>(3,3) = noise_params_.getAccelerometerCov();
@@ -346,8 +234,28 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
     // Noise Covariance Discretization
     Eigen::MatrixXd PhiG = Phi * G;
     Eigen::MatrixXd Qd = PhiG * Qc * PhiG.transpose() * dt; // Approximated discretized noise matrix (TODO: compute analytical)
+    return Qd;
+}
 
-    // Propagate Covariance
+
+// InEKF Propagation - Inertial Data
+void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
+
+    // Bias corrected IMU measurements
+    Eigen::Vector3d w = imu.head(3)  - state_.getGyroscopeBias();    // Angular Velocity
+    Eigen::Vector3d a = imu.tail(3) - state_.getAccelerometerBias(); // Linear Acceleration
+    
+    // Get current state estimate and dimensions
+    Eigen::MatrixXd X = state_.getX();
+    Eigen::MatrixXd Xinv = state_.Xinv();
+    Eigen::MatrixXd P = state_.getP();
+    int dimX = state_.dimX();
+    int dimP = state_.dimP();
+    int dimTheta = state_.dimTheta();
+
+    //  ------------ Propagate Covariance --------------- //
+    Eigen::MatrixXd Phi = this->StateTransitionMatrix(w,a,dt);
+    Eigen::MatrixXd Qd = this->DiscreteNoiseMatrix(Phi, dt);
     Eigen::MatrixXd P_pred = Phi * P * Phi.transpose() + Qd;
 
     // If we don't want to estimate bias, remove correlation
@@ -355,10 +263,40 @@ void InEKF::Propagate(const Eigen::Matrix<double,6,1>& imu, double dt) {
         P_pred.block(0,dimP-dimTheta,dimP-dimTheta,dimTheta) = Eigen::MatrixXd::Zero(dimP-dimTheta,dimTheta);
         P_pred.block(dimP-dimTheta,0,dimTheta,dimP-dimTheta) = Eigen::MatrixXd::Zero(dimTheta,dimP-dimTheta);
         P_pred.block(dimP-dimTheta,dimP-dimTheta,dimTheta,dimTheta) = Eigen::MatrixXd::Identity(dimTheta,dimTheta);
-    }
+    }    
 
-    // Set new covariance
-    state_.setP(P_pred);
+    //  ------------ Propagate Mean --------------- // 
+    Eigen::Matrix3d R = state_.getRotation();
+    Eigen::Vector3d v = state_.getVelocity();
+    Eigen::Vector3d p = state_.getPosition();
+
+    Eigen::Vector3d phi = w*dt;
+    Eigen::Matrix3d G0 = Gamma_SO3(phi,0); // Computation can be sped up by computing G0,G1,G2 all at once
+    Eigen::Matrix3d G1 = Gamma_SO3(phi,1);
+    Eigen::Matrix3d G2 = Gamma_SO3(phi,2);
+
+    Eigen::MatrixXd X_pred = X;
+    if (state_.getStateType() == StateType::WorldCentric) {
+        // Propagate world-centric state estimate
+        X_pred.block<3,3>(0,0) = R * G0;
+        X_pred.block<3,1>(0,3) = v + (R*G1*a + g_)*dt;
+        X_pred.block<3,1>(0,4) = p + v*dt + (R*G2*a + 0.5*g_)*dt*dt;
+    } else {
+        // Propagate body-centric state estimate
+        Eigen::MatrixXd X_pred = X;
+        Eigen::Matrix3d G0t = G0.transpose();
+        X_pred.block<3,3>(0,0) = G0t*R;
+        X_pred.block<3,1>(0,3) = G0t*(v - (G1*a + R*g_)*dt);
+        X_pred.block<3,1>(0,4) = G0t*(p + v*dt - (G2*a + 0.5*R*g_)*dt*dt);
+        for (int i=5; i<dimX; ++i) {
+            X_pred.block<3,1>(0,i) = G0t*X.block<3,1>(0,i);
+        }
+    } 
+    // ---------------------------------------------------- // 
+
+    // Set new state
+    state_.setX(X_pred);
+    state_.setP(P_pred);      
 }
 
 // Correct State: Right-Invariant Observation

@@ -53,7 +53,7 @@ Eigen::Matrix3d Gamma_SO3(const Eigen::Vector3d& w, int m) {
             // eye(3) + (1-cos(theta))/theta^2 * A + (theta-sin(theta))/theta^3 * A^2;
             return I + ((1-cos(theta))/theta2)*A + ((theta-sin(theta))/(theta2*theta))*A*A;
 
-        case 2: // Left Hessian of SO(3)?
+        case 2: 
             // 0.5*eye(3) - (1/theta^2) * (R - eye(3) - A - 0.5*A^2);
             // 0.5*eye(3) + (theta-sin(theta))/theta^3 * A + (2*(cos(theta)-1) + theta^2)/(2*theta^4) * A^2
             return 0.5*I + (theta-sin(theta))/(theta2*theta)*A + (theta2 + 2*cos(theta)-2)/(2*theta2*theta2)*A*A;

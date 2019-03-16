@@ -225,9 +225,13 @@ the default.
         std::map<int,int> estimated_landmarks_;
         Eigen::Vector3d magnetic_field_;
 
+        Eigen::MatrixXd StateTransitionMatrix(Eigen::Vector3d& w, Eigen::Vector3d& a, double dt);
+
         // Corrects state using invariant observation models
         void CorrectRightInvariant(const Observation& obs);
         void CorrectLeftInvariant(const Observation& obs);
+        void CorrectRightInvariant(const Eigen::MatrixXd& Z, const Eigen::MatrixXd& H, const Eigen::MatrixXd& N);
+        void CorrectLeftInvariant(const Eigen::MatrixXd& Z, const Eigen::MatrixXd& H, const Eigen::MatrixXd& N);
         // void CorrectFullState(const Observation& obs); // TODO
 };
 

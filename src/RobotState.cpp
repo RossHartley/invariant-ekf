@@ -42,6 +42,8 @@ const Eigen::MatrixXd RobotState::getP() const { return P_; }
 const Eigen::Matrix3d RobotState::getRotation() const { return X_.block<3,3>(0,0); }
 const Eigen::Vector3d RobotState::getVelocity() const { return X_.block<3,1>(0,3); }
 const Eigen::Vector3d RobotState::getPosition() const { return X_.block<3,1>(0,4); }
+const Eigen::Vector3d RobotState::getVector(int index) const { return X_.block<3,1>(0,index); }
+
 const Eigen::Vector3d RobotState::getGyroscopeBias() const { return Theta_.head(3); }
 const Eigen::Vector3d RobotState::getAccelerometerBias() const { return Theta_.tail(3); }
 
@@ -54,6 +56,71 @@ const Eigen::Matrix3d RobotState::getAccelerometerBiasCovariance() const { retur
 const int RobotState::dimX() const { return X_.cols(); }
 const int RobotState::dimTheta() const {return Theta_.rows();}
 const int RobotState::dimP() const { return P_.cols(); }
+
+
+const StateType RobotState::getStateType() const { return state_type_; }
+
+const Eigen::MatrixXd RobotState::getWorldX() const {
+    if (state_type_ == StateType::WorldCentric) {
+        return this->getX();
+    } else {
+        return this->Xinv();
+    }
+}
+const Eigen::Matrix3d RobotState::getWorldRotation() const {
+    if (state_type_ == StateType::WorldCentric) {
+        return this->getRotation();
+    } else {
+        return this->getRotation().transpose();
+    }
+}
+const Eigen::Vector3d RobotState::getWorldVelocity() const {
+    if (state_type_ == StateType::WorldCentric) {
+        return this->getVelocity();
+    } else {
+        return -this->getRotation().transpose()*this->getVelocity();
+    }
+}
+const Eigen::Vector3d RobotState::getWorldPosition() const {
+    if (state_type_ == StateType::WorldCentric) {
+        return this->getPosition();
+    } else {
+        return -this->getRotation().transpose()*this->getPosition();
+    }
+}
+
+const Eigen::MatrixXd RobotState::getBodyX() const {
+    if (state_type_ == StateType::BodyCentric) {
+        return this->getX();
+    } else {
+        return this->Xinv();
+    }
+}
+
+const Eigen::Matrix3d RobotState::getBodyRotation() const {
+    if (state_type_ == StateType::BodyCentric) {
+        return this->getRotation();
+    } else {
+        return this->getRotation().transpose();
+    }
+}
+
+const Eigen::Vector3d RobotState::getBodyVelocity() const {
+    if (state_type_ == StateType::BodyCentric) {
+        return this->getVelocity();
+    } else {
+        return -this->getRotation().transpose()*this->getVelocity();
+    }
+}
+
+const Eigen::Vector3d RobotState::getBodyPosition() const {
+    if (state_type_ == StateType::BodyCentric) {
+        return this->getPosition();
+    } else {
+        return -this->getRotation().transpose()*this->getPosition();
+    }
+}
+
 
 void RobotState::setX(const Eigen::MatrixXd& X) { X_ = X; }
 void RobotState::setTheta(const Eigen::VectorXd& Theta) { Theta_ = Theta; }

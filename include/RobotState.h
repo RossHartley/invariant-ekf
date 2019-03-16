@@ -18,6 +18,8 @@
 
 namespace inekf {
 
+enum StateType {WorldCentric, BodyCentric};
+
 class RobotState {
 
     public:
@@ -33,6 +35,7 @@ class RobotState {
         const Eigen::Matrix3d getRotation() const;
         const Eigen::Vector3d getVelocity() const;
         const Eigen::Vector3d getPosition() const;
+        const Eigen::Vector3d getVector(int id) const;
         const Eigen::Vector3d getGyroscopeBias() const;
         const Eigen::Vector3d getAccelerometerBias() const;
         const Eigen::Matrix3d getRotationCovariance() const;
@@ -43,6 +46,16 @@ class RobotState {
         const int dimX() const;
         const int dimTheta() const;
         const int dimP() const;
+        const StateType getStateType() const;
+        const Eigen::MatrixXd getWorldX() const;
+        const Eigen::Matrix3d getWorldRotation() const;
+        const Eigen::Vector3d getWorldVelocity() const;
+        const Eigen::Vector3d getWorldPosition() const;
+        const Eigen::MatrixXd getBodyX() const;
+        const Eigen::Matrix3d getBodyRotation() const;
+        const Eigen::Vector3d getBodyVelocity() const;
+        const Eigen::Vector3d getBodyPosition() const;
+
 
         void setX(const Eigen::MatrixXd& X);
         void setP(const Eigen::MatrixXd& P);
@@ -65,6 +78,7 @@ class RobotState {
         friend std::ostream& operator<<(std::ostream& os, const RobotState& s);  
 
     private:
+        StateType state_type_ = StateType::WorldCentric; 
         Eigen::MatrixXd X_;
         Eigen::VectorXd Theta_;
         Eigen::MatrixXd P_;

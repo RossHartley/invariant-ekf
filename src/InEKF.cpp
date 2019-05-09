@@ -317,6 +317,14 @@ void InEKF::CorrectRightInvariant(const Eigen::MatrixXd& Z, const Eigen::MatrixX
     int dimTheta = state_.dimTheta();
     int dimP = state_.dimP();
 
+    // Remove bias
+    Theta = Eigen::Matrix<double,6,1>::Zero();
+    P.block<6,6>(dimP-dimTheta,dimP-dimTheta) = 0.0001*Eigen::Matrix<double,6,6>::Identity();
+    P.block(0,dimP-dimTheta,dimP-dimTheta,dimTheta) = Eigen::MatrixXd::Zero(dimP-dimTheta,dimTheta);
+    P.block(dimP-dimTheta,0,dimTheta,dimP-dimTheta) = Eigen::MatrixXd::Zero(dimTheta,dimP-dimTheta);
+    // std::cout << "P:\n" << P << std::endl;
+    // std::cout << state_ << std::endl;
+
     // Map from left invariant to right invariant error temporarily
     if (error_type_==ErrorType::LeftInvariant) {
         Eigen::MatrixXd Adj = Eigen::MatrixXd::Identity(dimP,dimP);

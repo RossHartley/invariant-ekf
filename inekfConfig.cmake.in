@@ -8,6 +8,7 @@ get_filename_component(inekf_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 set(inekf_INCLUDE_DIRS "@inekf_include_dirs@")
 set(inekf_LIBRARY_DIRS "@inekf_library_dirs@")
 set(inekf_LIBRARIES "@inekf_libraries@")
+set(inekf_SOURCE_FILES "@inekf_source_files@")
 
 # This causes catkin_simple to link against these libraries
 set(inekf_FOUND_CATKIN_PROJECT true)

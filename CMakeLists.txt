@@ -98,6 +98,7 @@ export(PACKAGE inekf)
 # Create variable for the local build tree
 #set_target_properties(inekf PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 get_property(inekf_include_dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
+set(inekf_source_files "${src_files}")
 get_property(inekf_library_dirs TARGET inekf PROPERTY LIBRARY_OUTPUT_DIRECTORY)
 get_property(inekf_libraries TARGET inekf PROPERTY LIBRARY_OUTPUT_NAME)
 

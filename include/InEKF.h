@@ -24,6 +24,9 @@
 #include "LieGroup.h"
 #include "Observations.h"
 
+#include "NavState.h"
+
+
 namespace inekf {
 
 enum ErrorType {LeftInvariant, RightInvariant};

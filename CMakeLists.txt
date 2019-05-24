@@ -52,29 +52,25 @@ file(GLOB src_files
 ######################
 link_directories(${PROJECT_SOURCE_DIR}/${Boost_LIBRARY_DIRS})
 
-add_executable(landmarks ${PROJECT_SOURCE_DIR}/src/examples/landmarks.cpp ${src_files})
-add_executable(kinematics ${PROJECT_SOURCE_DIR}/src/examples/kinematics.cpp ${src_files})
-add_executable(propagation_speed ${PROJECT_SOURCE_DIR}/src/tests/propagation_speed.cpp ${src_files})
-add_executable(correction_speed ${PROJECT_SOURCE_DIR}/src/tests/correction_speed.cpp ${src_files})
-add_executable(large_state_speed ${PROJECT_SOURCE_DIR}/src/tests/large_state_speed.cpp ${src_files})
-add_executable(left_vs_right_error_dynamics ${PROJECT_SOURCE_DIR}/src/tests/left_vs_right_error_dynamics.cpp ${src_files})
+# add_executable(landmarks ${PROJECT_SOURCE_DIR}/src/examples/landmarks.cpp ${src_files})
+# add_executable(kinematics ${PROJECT_SOURCE_DIR}/src/examples/kinematics.cpp ${src_files})
+# add_executable(propagation_speed ${PROJECT_SOURCE_DIR}/src/tests/propagation_speed.cpp ${src_files})
+# add_executable(correction_speed ${PROJECT_SOURCE_DIR}/src/tests/correction_speed.cpp ${src_files})
+# add_executable(large_state_speed ${PROJECT_SOURCE_DIR}/src/tests/large_state_speed.cpp ${src_files})
+# add_executable(left_vs_right_error_dynamics ${PROJECT_SOURCE_DIR}/src/tests/left_vs_right_error_dynamics.cpp ${src_files})
 add_executable(NavState_tests ${PROJECT_SOURCE_DIR}/src/tests/NavState_tests.cpp ${src_files})
 
-target_link_libraries(landmarks ${Boost_LIBRARIES})
-target_link_libraries(kinematics ${Boost_LIBRARIES})
-target_link_libraries(propagation_speed ${Boost_LIBRARIES})
-target_link_libraries(correction_speed ${Boost_LIBRARIES})
-target_link_libraries(large_state_speed ${Boost_LIBRARIES})
-target_link_libraries(left_vs_right_error_dynamics ${Boost_LIBRARIES})
+# target_link_libraries(landmarks ${Boost_LIBRARIES})
+# target_link_libraries(kinematics ${Boost_LIBRARIES})
+# target_link_libraries(propagation_speed ${Boost_LIBRARIES})
+# target_link_libraries(correction_speed ${Boost_LIBRARIES})
+# target_link_libraries(large_state_speed ${Boost_LIBRARIES})
+# target_link_libraries(left_vs_right_error_dynamics ${Boost_LIBRARIES})
 target_link_libraries(NavState_tests ${Boost_LIBRARIES})
 
 # Create Library
 add_library(inekf SHARED
-    "${PROJECT_SOURCE_DIR}/src/InEKF.cpp"
-    "${PROJECT_SOURCE_DIR}/src/RobotState.cpp"
-    "${PROJECT_SOURCE_DIR}/src/LieGroup.cpp"
-    "${PROJECT_SOURCE_DIR}/src/NoiseParams.cpp"
-    "${PROJECT_SOURCE_DIR}/src/Observations.cpp"
+    "${PROJECT_SOURCE_DIR}/src/Lie.cpp"
     "${PROJECT_SOURCE_DIR}/src/NavState.cpp"
 )
 set_target_properties(inekf PROPERTIES LIBRARY_OUTPUT_NAME inekf)

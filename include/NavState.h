@@ -18,6 +18,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include "Lie.h"
 
 namespace inekf {
 

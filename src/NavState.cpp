@@ -12,7 +12,6 @@
  **/
 
 #include "NavState.h"
-#include "LieGroup.h"
 
 namespace inekf {
 
@@ -95,9 +94,9 @@ void NavState::integrate(const Eigen::Vector3d& angular_velocity, const Eigen::V
     // Auxiliary quantities
     double dt2 = dt*dt;
     Eigen::Vector3d phi = w*dt;
-    Eigen::Matrix3d G0 = Gamma_SO3(phi,0); // Computation can be sped up by computing G0,G1,G2 all at once
-    Eigen::Matrix3d G1 = Gamma_SO3(phi,1);
-    Eigen::Matrix3d G2 = Gamma_SO3(phi,2);
+    Eigen::Matrix3d G0 = lie::Gamma_SO3(phi,0); // Computation can be sped up by computing G0,G1,G2 all at once
+    Eigen::Matrix3d G1 = lie::Gamma_SO3(phi,1);
+    Eigen::Matrix3d G2 = lie::Gamma_SO3(phi,2);
 
     // Propagate world-centric state estimate (order matters!)
     p_ = (p_ + v_*dt + (R_*G2*a + 0.5*g_)*dt2).eval();
@@ -107,10 +106,10 @@ void NavState::integrate(const Eigen::Vector3d& angular_velocity, const Eigen::V
     // Optional state transition matrix
     if (Phi) {
         // Helper quantities for bias terms
-        Eigen::Matrix3d wx = skew(w);
-        Eigen::Matrix3d ax = skew(a);
+        Eigen::Matrix3d wx = lie::skew(w);
+        Eigen::Matrix3d ax = lie::skew(a);
         Eigen::Vector3d phi = w*dt;
-        Eigen::Matrix3d phix = skew(phi);
+        Eigen::Matrix3d phix = lie::skew(phi);
         Eigen::Matrix3d phixax = phix*ax;
         Eigen::Matrix3d phix2 = phix*phix;
         Eigen::Matrix3d phix2ax = phix2*ax;
@@ -126,7 +125,7 @@ void NavState::integrate(const Eigen::Vector3d& angular_velocity, const Eigen::V
         double sin2theta = sin(2*theta);
         double cos2theta = cos(2*theta);
 
-        Eigen::Matrix3d Psi1 = ax*Gamma_SO3(-phi,2)
+        Eigen::Matrix3d Psi1 = ax*lie::Gamma_SO3(-phi,2)
             + ((sintheta-theta*costheta)/(theta3))*(phixax)
             - ((cos2theta-4*costheta+3)/(4*theta4))*(phixax*phix)
             + ((4*sintheta+sin2theta-4*theta*costheta-2*theta)/(4*theta5))*(phixax*phix2)
@@ -134,7 +133,7 @@ void NavState::integrate(const Eigen::Vector3d& angular_velocity, const Eigen::V
             - ((6*theta-8*sintheta+sin2theta)/(4*theta5))*(phix2ax*phix)
             + ((2*theta2-4*theta*sintheta-cos2theta+1)/(4*theta6))*(phix2ax*phix2);
 
-        Eigen::Matrix3d Psi2 = ax*Gamma_SO3(-phi,3) 
+        Eigen::Matrix3d Psi2 = ax*lie::Gamma_SO3(-phi,3) 
             - ((theta*sintheta+2*costheta-2)/(theta4))*(phixax) 
             - ((6*theta-8*sintheta+sin2theta)/(8*theta5))*(phixax*phix) 
             - ((2*theta2+8*theta*sintheta+16*costheta+cos2theta-17)/(8*theta6))*(phixax*phix2) 
@@ -148,8 +147,8 @@ void NavState::integrate(const Eigen::Vector3d& angular_velocity, const Eigen::V
             (*Phi) = Eigen::Matrix<double,15,15>::Identity();
             Eigen::Matrix3d G0t = G0.transpose(); 
             (*Phi).block<3,3>(0,0) = G0t;
-            (*Phi).block<3,3>(3,0) = -G0t*skew(G1*a)*dt;
-            (*Phi).block<3,3>(6,0) = -G0t*skew(G2*a)*dt2;
+            (*Phi).block<3,3>(3,0) = -G0t*lie::skew(G1*a)*dt;
+            (*Phi).block<3,3>(6,0) = -G0t*lie::skew(G2*a)*dt2;
             (*Phi).block<3,3>(3,3) = G0t;
             (*Phi).block<3,3>(6,3) = G0t*dt;
             (*Phi).block<3,3>(6,6) = G0t;
@@ -161,15 +160,15 @@ void NavState::integrate(const Eigen::Vector3d& angular_velocity, const Eigen::V
         } else if (error_type.compare("right")==0) { 
             // right-invariant error
             (*Phi) = Eigen::Matrix<double,15,15>::Identity();
-            Eigen::Matrix3d gx = skew(g_);
+            Eigen::Matrix3d gx = lie::skew(g_);
             Eigen::Matrix3d Rk = R_*G0.transpose(); 
             Eigen::Matrix3d RkG1 = Rk*G1; 
             (*Phi).block<3,3>(3,0) = gx*dt;
             (*Phi).block<3,3>(6,0) = 0.5*gx*dt2;
             (*Phi).block<3,3>(6,3) = Eigen::Matrix3d::Identity()*dt;
             (*Phi).block<3,3>(0,9) = -RkG1*dt;
-            (*Phi).block<3,3>(3,9) = -skew(v_)*RkG1*dt + Rk*Psi1*dt2;
-            (*Phi).block<3,3>(6,9) = -skew(p_)*RkG1*dt + Rk*Psi2*dt2*dt;
+            (*Phi).block<3,3>(3,9) = -lie::skew(v_)*RkG1*dt + Rk*Psi1*dt2;
+            (*Phi).block<3,3>(6,9) = -lie::skew(p_)*RkG1*dt + Rk*Psi2*dt2*dt;
             (*Phi).block<3,3>(3,12) = -RkG1*dt;
             (*Phi).block<3,3>(6,12) = -Rk*G2*dt2;
         } else {

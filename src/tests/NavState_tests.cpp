@@ -12,7 +12,8 @@
  **/
 
 #include <iostream>
-#include "InEKF.h"
+#include "NavState.h"
+#include <unsupported/Eigen/MatrixFunctions>
 
 int main() {
     
@@ -27,7 +28,7 @@ int main() {
 
     // Constructor from state
     Eigen::Vector3d phi; phi << 1,2,3;
-    Eigen::Matrix3d R = inekf::Exp_SO3(phi);
+    Eigen::Matrix3d R = lie::Exp_SO3(phi);
     Eigen::Vector3d v; v << 4,5,6;
     Eigen::Vector3d p; p << 7,8,9;
     Eigen::Vector3d bg; bg << 10,11,12;
@@ -53,16 +54,16 @@ int main() {
     double dt = 0.1;
     Eigen::Matrix<double,15,15> PhiR, PhiL;
     Eigen::Matrix<double,15,15> Adj_XkInv = Eigen::Matrix<double,15,15>::Identity();
-    Adj_XkInv.block<9,9>(0,0) = inekf::Adjoint_SEK3(state3.inverse().getX());
+    Adj_XkInv.block<9,9>(0,0) = lie::Adjoint_SEK3(state3.inverse().getX());
     inekf::NavState state4 = state3;
     state4.integrate(w,a,dt,PhiL); // Integrate and compute state transition matrix (left-invariant)
     state3.integrate(w,a,dt,PhiR,"right"); // Integrate and compute state transition matrix (right-invariant)
     Eigen::Matrix<double,15,15> Adj_Xk1 = Eigen::Matrix<double,15,15>::Identity();
-    Adj_Xk1.block<9,9>(0,0) = inekf::Adjoint_SEK3(state3.getX());
+    Adj_Xk1.block<9,9>(0,0) = lie::Adjoint_SEK3(state3.getX());
     // Compute state transition matrix using matrix exponential (left-invariant)
     Eigen::Matrix<double,15,15> A = Eigen::Matrix<double,15,15>::Zero();
-    Eigen::Matrix3d wx = inekf::skew(w-bg);
-    Eigen::Matrix3d ax = inekf::skew(a-ba);
+    Eigen::Matrix3d wx = lie::skew(w-bg);
+    Eigen::Matrix3d ax = lie::skew(a-ba);
     A.block<3,3>(0,0) = -wx;  
     A.block<3,3>(3,3) = -wx;  
     A.block<3,3>(6,6) = -wx;  

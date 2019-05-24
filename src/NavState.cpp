@@ -21,12 +21,12 @@ using namespace std;
 // Default constructor
 NavState::NavState() : 
     R_(Eigen::Matrix3d::Identity()), v_(Eigen::Vector3d::Zero()), p_(Eigen::Vector3d::Zero()), 
-    bg_(Eigen::Vector3d::Zero()), ba_(Eigen::Vector3d::Zero()) {}
+    bg_(Eigen::Vector3d::Zero()), ba_(Eigen::Vector3d::Zero()), g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()) {}
 
 // Initialize with provided state
 NavState::NavState(const Eigen::Matrix3d& R, const Eigen::Vector3d& v, const Eigen::Vector3d& p, 
                    const Eigen::Vector3d& bg, const Eigen::Vector3d& ba) :
-    R_(R), v_(v), p_(p), bg_(bg), ba_(ba) {}
+    R_(R), v_(v), p_(p), bg_(bg), ba_(ba), g_((Eigen::VectorXd(3) << 0,0,-9.81).finished()) {}
 
 
 // Get separate state variables
@@ -85,6 +85,82 @@ NavState NavState::inverse() const {
     return NavState(Rt, -Rt*v_, -Rt*p_, bg_, ba_);
 }
 
+// Integrate IMU data
+void NavState::integrate(const Eigen::Vector3d& angular_velocity, const Eigen::Vector3d& linear_acceleration, double dt, 
+                         boost::optional<Eigen::Matrix<double,15,15>&> Phi) {
+    // Bias corrected IMU measurements
+    Eigen::Vector3d w = angular_velocity - bg_;
+    Eigen::Vector3d a = linear_acceleration - ba_;
+
+    // Auxiliary quantities
+    double dt2 = dt*dt;
+    Eigen::Vector3d phi = w*dt;
+    Eigen::Matrix3d G0 = Gamma_SO3(phi,0); // Computation can be sped up by computing G0,G1,G2 all at once
+    Eigen::Matrix3d G1 = Gamma_SO3(phi,1);
+    Eigen::Matrix3d G2 = Gamma_SO3(phi,2);
+
+    // Propagate world-centric state estimate (order matters!)
+    p_ = (p_ + v_*dt + (R_*G2*a + 0.5*g_)*dt2).eval();
+    v_ = (v_ + (R_*G1*a + g_)*dt).eval();
+    R_ = (R_ * G0).eval();
+
+    // Optional state transition matrix
+    if (Phi) {
+        // Group terms
+        (*Phi) = Eigen::Matrix<double,15,15>::Identity();
+        Eigen::Matrix3d gx = skew(g_);
+        (*Phi).block<3,3>(3,0) = gx*dt;
+        (*Phi).block<3,3>(6,0) = 0.5*gx*dt2;
+        (*Phi).block<3,3>(6,3) = Eigen::Matrix3d::Identity()*dt;
+
+        // Bias terms
+        Eigen::Matrix3d wx = skew(w);
+        Eigen::Matrix3d ax = skew(a);
+        Eigen::Vector3d phi = w*dt;
+        Eigen::Matrix3d phix = skew(phi);
+        Eigen::Matrix3d phixax = phix*ax;
+        Eigen::Matrix3d phix2 = phix*phix;
+        Eigen::Matrix3d phix2ax = phix2*ax;
+        double theta = phi.norm();
+        double theta2 = theta*theta;
+        double theta3 = theta2*theta;
+        double theta4 = theta3*theta;
+        double theta5 = theta4*theta;
+        double theta6 = theta5*theta;
+        double theta7 = theta6*theta;
+        double sintheta = sin(theta);
+        double costheta = cos(theta);
+        double sin2theta = sin(2*theta);
+        double cos2theta = cos(2*theta);
+
+        Eigen::Matrix3d Psi1 = ax*Gamma_SO3(-phi,2)
+            + ((sintheta-theta*costheta)/(theta3))*(phixax)
+            - ((cos2theta-4*costheta+3)/(4*theta4))*(phixax*phix)
+            + ((4*sintheta+sin2theta-4*theta*costheta-2*theta)/(4*theta5))*(phixax*phix2)
+            + ((theta2-2*theta*sintheta-2*costheta+2)/(2*theta4))*(phix2ax)
+            - ((6*theta-8*sintheta+sin2theta)/(4*theta5))*(phix2ax*phix)
+            + ((2*theta2-4*theta*sintheta-cos2theta+1)/(4*theta6))*(phix2ax*phix2);
+
+        Eigen::Matrix3d Psi2 = ax*Gamma_SO3(-phi,3) 
+            - ((theta*sintheta+2*costheta-2)/(theta4))*(phixax) 
+            - ((6*theta-8*sintheta+sin2theta)/(8*theta5))*(phixax*phix) 
+            - ((2*theta2+8*theta*sintheta+16*costheta+cos2theta-17)/(8*theta6))*(phixax*phix2) 
+            + ((theta3+6*theta-12*sintheta+6*theta*costheta)/(6*theta5))*(phix2ax) 
+            - ((6*theta2+16*costheta-cos2theta-15)/(8*theta6))*(phix2ax*phix) 
+            + ((4*theta3+6*theta-24*sintheta-3*sin2theta+24*theta*costheta)/(24*theta7))*(phix2ax*phix2);
+
+        Eigen::Matrix3d Rk = R_*G0.transpose(); 
+        Eigen::Matrix3d RkG1 = Rk*G1; 
+        (*Phi).block<3,3>(0,9) = -RkG1*dt;
+        (*Phi).block<3,3>(3,9) = -skew(v_)*RkG1*dt + Rk*Psi1*dt2;
+        (*Phi).block<3,3>(6,9) = -skew(p_)*RkG1*dt + Rk*Psi2*dt2*dt;
+        (*Phi).block<3,3>(3,12) = -RkG1*dt;
+        (*Phi).block<3,3>(6,12) = -Rk*G2*dt2;
+
+    }
+        
+}
+
 // Print
 ostream& operator<<(ostream& os, const NavState& s) {  
     os << "--------- NavState -------------" << endl;
@@ -95,3 +171,5 @@ ostream& operator<<(ostream& os, const NavState& s) {
 } 
 
 } // end inekf namespace
+
+

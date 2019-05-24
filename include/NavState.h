@@ -14,6 +14,7 @@
 #ifndef NAVSTATE_H
 #define NAVSTATE_H 
 #include <Eigen/Dense>
+#include <boost/optional.hpp>
 #include <iostream>
 
 namespace inekf {
@@ -48,6 +49,8 @@ class NavState {
         const int dimBias() const;
 
         NavState inverse() const;
+        void integrate(const Eigen::Vector3d& angular_velocity, const Eigen::Vector3d& linear_acceleration, double dt, 
+                       boost::optional<Eigen::Matrix<double,15,15>&> Phi = boost::none);
 
         friend std::ostream& operator<<(std::ostream& os, const NavState& s);  
 
@@ -60,6 +63,7 @@ class NavState {
 
         const double dimX_ = 9;
         const double dimBias_ = 6;
+        const Eigen::Vector3d g_; // Gravity vector in world frame (z-up)
 };
 
 } // end inekf namespace

@@ -16,6 +16,8 @@
 #include <Eigen/Dense>
 #include <boost/optional.hpp>
 #include <iostream>
+#include <stdexcept>
+#include <string>
 
 namespace inekf {
 
@@ -50,9 +52,9 @@ class NavState {
 
         NavState inverse() const;
         void integrate(const Eigen::Vector3d& angular_velocity, const Eigen::Vector3d& linear_acceleration, double dt, 
-                       boost::optional<Eigen::Matrix<double,15,15>&> Phi = boost::none);
+                       boost::optional<Eigen::Matrix<double,15,15>&> Phi = boost::none, std::string error_type = "left");
 
-        friend std::ostream& operator<<(std::ostream& os, const NavState& s);  
+        friend std::ostream& operator<<(std::ostream& os, const NavState& s);   
 
     private:
         Eigen::Matrix3d R_;

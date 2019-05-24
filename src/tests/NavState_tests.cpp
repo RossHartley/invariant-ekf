@@ -51,13 +51,14 @@ int main() {
     Eigen::Vector3d w; w << 1,2,3;
     Eigen::Vector3d a; a << 4,5,6;
     double dt = 0.1;
-    Eigen::Matrix<double,15,15> Phi, Qd;
+    Eigen::Matrix<double,15,15> PhiR, PhiL;
     Eigen::Matrix<double,15,15> Adj_XkInv = Eigen::Matrix<double,15,15>::Identity();
     Adj_XkInv.block<9,9>(0,0) = inekf::Adjoint_SEK3(state3.inverse().getX());
-    state3.integrate(w,a,dt,Phi); // Integrate and compute state transition matrix (right-invariant)
+    inekf::NavState state4 = state3;
+    state4.integrate(w,a,dt,PhiL); // Integrate and compute state transition matrix (left-invariant)
+    state3.integrate(w,a,dt,PhiR,"right"); // Integrate and compute state transition matrix (right-invariant)
     Eigen::Matrix<double,15,15> Adj_Xk1 = Eigen::Matrix<double,15,15>::Identity();
     Adj_Xk1.block<9,9>(0,0) = inekf::Adjoint_SEK3(state3.getX());
-
     // Compute state transition matrix using matrix exponential (left-invariant)
     Eigen::Matrix<double,15,15> A = Eigen::Matrix<double,15,15>::Zero();
     Eigen::Matrix3d wx = inekf::skew(w-bg);
@@ -71,8 +72,9 @@ int main() {
     A.block<3,3>(3,12) = -Eigen::Matrix3d::Identity();  
     Eigen::Matrix<double,15,15> Phi_L = (A*dt).exp();
     Eigen::Matrix<double,15,15> Phi_R = Adj_Xk1 * Phi_L * Adj_XkInv;
-    assert((Phi-Phi_R).norm()<1e-10);
-    std::cout << "Passed integration and state transition matrix test.\n";
+    assert((PhiL-Phi_L).norm()<1e-10);
+    assert((PhiR-Phi_R).norm()<1e-10);
+    std::cout << "Passed integration and state transition matrix tests.\n";
 
     return 0;
 }

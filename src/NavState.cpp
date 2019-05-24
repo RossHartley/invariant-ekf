@@ -87,7 +87,7 @@ NavState NavState::inverse() const {
 
 // Integrate IMU data
 void NavState::integrate(const Eigen::Vector3d& angular_velocity, const Eigen::Vector3d& linear_acceleration, double dt, 
-                         boost::optional<Eigen::Matrix<double,15,15>&> Phi) {
+                         boost::optional<Eigen::Matrix<double,15,15>&> Phi, std::string error_type) {
     // Bias corrected IMU measurements
     Eigen::Vector3d w = angular_velocity - bg_;
     Eigen::Vector3d a = linear_acceleration - ba_;
@@ -106,14 +106,7 @@ void NavState::integrate(const Eigen::Vector3d& angular_velocity, const Eigen::V
 
     // Optional state transition matrix
     if (Phi) {
-        // Group terms
-        (*Phi) = Eigen::Matrix<double,15,15>::Identity();
-        Eigen::Matrix3d gx = skew(g_);
-        (*Phi).block<3,3>(3,0) = gx*dt;
-        (*Phi).block<3,3>(6,0) = 0.5*gx*dt2;
-        (*Phi).block<3,3>(6,3) = Eigen::Matrix3d::Identity()*dt;
-
-        // Bias terms
+        // Helper quantities for bias terms
         Eigen::Matrix3d wx = skew(w);
         Eigen::Matrix3d ax = skew(a);
         Eigen::Vector3d phi = w*dt;
@@ -149,14 +142,40 @@ void NavState::integrate(const Eigen::Vector3d& angular_velocity, const Eigen::V
             - ((6*theta2+16*costheta-cos2theta-15)/(8*theta6))*(phix2ax*phix) 
             + ((4*theta3+6*theta-24*sintheta-3*sin2theta+24*theta*costheta)/(24*theta7))*(phix2ax*phix2);
 
-        Eigen::Matrix3d Rk = R_*G0.transpose(); 
-        Eigen::Matrix3d RkG1 = Rk*G1; 
-        (*Phi).block<3,3>(0,9) = -RkG1*dt;
-        (*Phi).block<3,3>(3,9) = -skew(v_)*RkG1*dt + Rk*Psi1*dt2;
-        (*Phi).block<3,3>(6,9) = -skew(p_)*RkG1*dt + Rk*Psi2*dt2*dt;
-        (*Phi).block<3,3>(3,12) = -RkG1*dt;
-        (*Phi).block<3,3>(6,12) = -Rk*G2*dt2;
-
+        // State transition matrix depends on error definition
+        if (error_type.compare("left")==0) { 
+            // left-invariant error
+            (*Phi) = Eigen::Matrix<double,15,15>::Identity();
+            Eigen::Matrix3d G0t = G0.transpose(); 
+            (*Phi).block<3,3>(0,0) = G0t;
+            (*Phi).block<3,3>(3,0) = -G0t*skew(G1*a)*dt;
+            (*Phi).block<3,3>(6,0) = -G0t*skew(G2*a)*dt2;
+            (*Phi).block<3,3>(3,3) = G0t;
+            (*Phi).block<3,3>(6,3) = G0t*dt;
+            (*Phi).block<3,3>(6,6) = G0t;
+            (*Phi).block<3,3>(0,9) = -G0t*G1*dt;
+            (*Phi).block<3,3>(3,9) = G0t*Psi1*dt2;
+            (*Phi).block<3,3>(6,9) = G0t*Psi2*dt2*dt;
+            (*Phi).block<3,3>(3,12) = -G0t*G1*dt;
+            (*Phi).block<3,3>(6,12) = -G0t*G2*dt2;
+        } else if (error_type.compare("right")==0) { 
+            // right-invariant error
+            (*Phi) = Eigen::Matrix<double,15,15>::Identity();
+            Eigen::Matrix3d gx = skew(g_);
+            Eigen::Matrix3d Rk = R_*G0.transpose(); 
+            Eigen::Matrix3d RkG1 = Rk*G1; 
+            (*Phi).block<3,3>(3,0) = gx*dt;
+            (*Phi).block<3,3>(6,0) = 0.5*gx*dt2;
+            (*Phi).block<3,3>(6,3) = Eigen::Matrix3d::Identity()*dt;
+            (*Phi).block<3,3>(0,9) = -RkG1*dt;
+            (*Phi).block<3,3>(3,9) = -skew(v_)*RkG1*dt + Rk*Psi1*dt2;
+            (*Phi).block<3,3>(6,9) = -skew(p_)*RkG1*dt + Rk*Psi2*dt2*dt;
+            (*Phi).block<3,3>(3,12) = -RkG1*dt;
+            (*Phi).block<3,3>(6,12) = -Rk*G2*dt2;
+        } else {
+            std::string error_msg = "Uknown error type (" + error_type + ") as input to NavState integrate function. Argument should be (left) or (right).";
+            throw runtime_error(error_msg);
+        }
     }
         
 }

@@ -12,11 +12,14 @@
  **/
 
 #include <iostream>
-#include "NavState.h"
+#include "NavStateExtended.h"
 #include <unsupported/Eigen/MatrixFunctions>
 
 int main() {
     
+    // ------------------- NavState ---------------- //
+    {
+    std::cout << "\n--------- NavState tests ------ \n";
     // Default constructor
     inekf::NavState state1;
     assert(state1.getRotation() == Eigen::Matrix3d::Identity());
@@ -76,6 +79,23 @@ int main() {
     assert((PhiL-Phi_L).norm()<1e-10);
     assert((PhiR-Phi_R).norm()<1e-10);
     std::cout << "Passed integration and state transition matrix tests.\n";
+    }
+    // -----------------------------------------------------------------------------
 
+
+
+    // ---------------------- NavStateExtended ------------------------------------ //
+    {
+    std::cout << "\n--------- NavStateExtended tests ------ \n";
+    // Default constructor
+    inekf::NavStateExtended state1;
+    assert(state1.getRotation() == Eigen::Matrix3d::Identity());
+    assert(state1.getVelocity() == Eigen::Vector3d::Zero());
+    assert(state1.getPosition() == Eigen::Vector3d::Zero());
+    assert(state1.getGyroscopeBias() == Eigen::Vector3d::Zero());
+    assert(state1.getAccelerometerBias() == Eigen::Vector3d::Zero());
+    std::cout << "Passed default constructor test.\n";
+    }
+    // -------------------------------------------------------------------------------
     return 0;
 }

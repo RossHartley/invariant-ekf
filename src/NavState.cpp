@@ -5,7 +5,7 @@
  * -------------------------------------------------------------------------- */
 
 /**
- *  @file   NavState.h
+ *  @file   NavState.cpp
  *  @author Ross Hartley
  *  @brief  Source file for NavState
  *  @date   May 23, 2019

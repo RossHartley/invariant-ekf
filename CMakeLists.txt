@@ -72,6 +72,7 @@ target_link_libraries(NavState_tests ${Boost_LIBRARIES})
 add_library(inekf SHARED
     "${PROJECT_SOURCE_DIR}/src/Lie.cpp"
     "${PROJECT_SOURCE_DIR}/src/NavState.cpp"
+    "${PROJECT_SOURCE_DIR}/src/NavStateExtended.cpp"
 )
 set_target_properties(inekf PROPERTIES LIBRARY_OUTPUT_NAME inekf)
 

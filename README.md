@@ -5,7 +5,7 @@ This repository contains a C++ library that implements an invariant extended Kal
 
 This filter can be used to estimate a robot's 3D pose and velocity using an IMU motion model for propagation. The following measurements are currently supported:
 * Prior landmark position measurements (localization)
-* Estiamted landmark position measurements (SLAM)
+* Estimated landmark position measurements (SLAM)
 * Kinematic and contact measurements
 
 The core theory was developed by Barrau and Bonnabel and is presented in:
@@ -23,15 +23,15 @@ A ROS wrapper for the filter is available at [https://github.com/RossHartley/inv
 * [Eigen3 C++ Library](http://eigen.tuxfamily.org/index.php?title=Main_Page)
 
 ### Installation Using CMake
-```
+```shell
 mkdir build
 cd build 
 cmake .. 
 make
 ``` 
 invariant-ekf can be easily included in your cmake project by adding the following to your CMakeLists.txt:
-```
-find_package(inekf) 
+```cmake
+find_package(inekf REQUIRED) 
 include_directories(${inekf_INCLUDE_DIRS})
 ```
 
